@@ -1,0 +1,3625 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <title></title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #111;
+        --paper: #f4f3ee;
+      }
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--paper);
+        overscroll-behavior: none;
+      }
+      #stage {
+        position: fixed;
+        inset: 0;
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        touch-action: none;
+        cursor: crosshair;
+      }
+      #dock {
+        position: fixed;
+        bottom: max(28px, env(safe-area-inset-bottom));
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px;
+        background: #f9f8f3;
+        border: 1px solid var(--ink);
+        box-shadow: 3px 4px 0 #171712;
+        user-select: none;
+        touch-action: manipulation;
+      }
+      .tool {
+        width: 45px;
+        height: 43px;
+        display: grid;
+        place-items: center;
+        color: var(--ink);
+        border: 1px solid #111111;
+        cursor: pointer;
+        outline: none;
+      }
+      .tool svg {
+        width: 25px;
+        height: 25px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.7;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+        pointer-events: none;
+      }
+      .tool:hover {
+        border-color: #111;
+        background: #eae8df;
+      }
+      .tool.active,
+      .tool:active {
+        border-color: #111;
+        background: #111;
+        color: #fff;
+      }
+      .tool:focus-visible {
+        outline: 2px solid #111;
+        outline-offset: 2px;
+      }
+      #divider {
+        height: 27px;
+        width: 1px;
+        background: #111;
+        margin: 0 4px;
+      }
+      #clear {
+        width: 34px;
+      }
+      #clear svg {
+        width: 20px;
+        height: 20px;
+      }
+      input[hidden] {
+        display: none;
+      }
+      @media (max-width: 520px) {
+        #dock {
+          bottom: max(20px, env(safe-area-inset-bottom));
+          gap: 3px;
+          padding: 5px;
+        }
+        .tool {
+          width: 40px;
+          height: 42px;
+        }
+        #clear {
+          width: 31px;
+        }
+        #divider {
+          margin: 0 2px;
+        }
+      }
+      @media (max-width: 300px) {
+        .tool {
+          width: 32px;
+        }
+        #dock {
+          gap: 1px;
+        }
+      }
+      #scenes {
+        position: fixed;
+        top: max(27px, env(safe-area-inset-top));
+        left: 40px;
+        display: flex;
+        background: #f9f8f3;
+        color: var(--ink);
+        border: 1px solid var(--ink);
+        box-shadow: 2px 3px 0 #171712;
+        user-select: none;
+        touch-action: manipulation;
+      }
+      .scene {
+        display: grid;
+        place-items: center;
+        width: 51px;
+        height: 40px;
+        cursor: pointer;
+        outline: none;
+      }
+      .scene + .scene {
+        border-left: 1px solid var(--ink);
+      }
+      .scene svg {
+        width: 34px;
+        height: 26px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+      }
+      .scene:hover {
+        background: #e8e6dd;
+      }
+      .scene[aria-pressed="true"] {
+        background: var(--ink);
+        color: var(--paper);
+      }
+      .scene:focus-visible {
+        outline: 2px solid var(--ink);
+        outline-offset: 3px;
+      }
+      @media (max-width: 600px) {
+        #scenes {
+          left: 50%;
+          transform: translateX(-50%);
+          top: max(21px, env(safe-area-inset-top));
+        }
+        .scene {
+          width: 44px;
+        }
+      }
+      #bladeModes {
+        position: absolute;
+        bottom: calc(100% + 9px);
+        left: 56%;
+        transform: translateX(-50%);
+        display: flex;
+        background: var(--paper);
+        border: 1px solid var(--ink);
+        box-shadow: 2px 3px 0 var(--ink);
+      }
+      #bladeModes[hidden] {
+        display: none;
+      }
+      .mode {
+        width: 42px;
+        height: 38px;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        color: var(--ink);
+      }
+      .mode + .mode {
+        border-left: 1px solid var(--ink);
+      }
+      .mode svg {
+        width: 24px;
+        height: 24px;
+        pointer-events: none;
+      }
+      .mode:hover {
+        background: #e8e6dd;
+      }
+      .mode[aria-pressed="true"] {
+        background: var(--ink);
+        color: white;
+      }
+      .mode:focus-visible {
+        outline: 2px solid var(--ink);
+        outline-offset: 3px;
+      }
+      [data-tool="world"] {
+        position: relative;
+      }
+      [data-tool="world"]::after {
+        content: "";
+        position: absolute;
+        right: 3px;
+        top: 3px;
+        border-top: 4px solid currentColor;
+        border-left: 4px solid transparent;
+      }
+      #stageControls {
+        position: fixed;
+        right: 40px;
+        top: max(27px, env(safe-area-inset-top));
+        display: flex;
+        border: 1px solid var(--ink);
+        box-shadow: 2px 3px 0 var(--ink);
+        background: #f9f8f3;
+        touch-action: manipulation;
+      }
+      #stageControls .tool {
+        width: 45px;
+        height: 40px;
+        border: 0;
+      }
+      #stageControls #nuke {
+        color: #111;
+        background: #ef6739;
+        border-left: 1px solid var(--ink);
+      }
+      #stageControls #nuke[aria-disabled="true"] {
+        background: var(--ink);
+        color: #ef6739;
+      }
+      #stageControls #nuke:hover {
+        box-shadow: inset 0 0 0 2px var(--ink);
+      }
+      @media (max-width: 600px) {
+        #scenes {
+          left: 12px;
+          transform: none;
+        }
+        .scene {
+          width: clamp(28px, 10.8vw, 44px);
+        }
+        #stageControls {
+          right: 12px;
+          top: max(21px, env(safe-area-inset-top));
+        }
+        #stageControls .tool {
+          width: clamp(28px, 10.6vw, 43px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage" aria-label="Physics drawing and slicing canvas"></canvas>
+    <div id="scenes" role="toolbar" aria-label="Starting scenes">
+      <div
+        class="scene"
+        data-scene="city"
+        role="button"
+        tabindex="0"
+        aria-pressed="true"
+        aria-label="City skyline"
+      >
+        <svg aria-hidden="true" viewBox="0 0 36 28">
+          <path
+            d="M2 23h32M4 22V12h6v10m1 0V8h3V5h2V2h1v3h2v3h2v14m2 0V10h7v12M6.5 15v2m8-6v8m3-8v8m8.5-5h1"
+          />
+        </svg>
+      </div>
+      <div
+        class="scene"
+        data-scene="bridge"
+        role="button"
+        tabindex="0"
+        aria-pressed="false"
+        aria-label="Railway viaduct"
+      >
+        <svg aria-hidden="true" viewBox="0 0 36 28">
+          <path
+            d="M2 12h32v3H2zM4 15v7h2c0-6 6-6 6 0h3c0-6 6-6 6 0h3c0-6 6-6 6 0h2v-7M7 11V7h15l4 4M11 7v4m5-4v4"
+          />
+        </svg>
+      </div>
+      <div
+        class="scene"
+        data-scene="castle"
+        role="button"
+        tabindex="0"
+        aria-pressed="false"
+        aria-label="Castle courtyard"
+      >
+        <svg aria-hidden="true" viewBox="0 0 36 28">
+          <path
+            d="M3 23h30M5 23V11h7v12m-8-12 4.5-7 4.5 7zm19 12V11h7v12m-8-12 4.5-7 4.5 7zM12 14h2v-3h3v3h3v-3h3v3m-8 9v-3a3 3 0 0 1 6 0v3"
+          />
+        </svg>
+      </div>
+      <div
+        class="scene"
+        data-scene="shapes"
+        role="button"
+        tabindex="0"
+        aria-pressed="false"
+        aria-label="Geometric solids"
+      >
+        <svg aria-hidden="true" viewBox="0 0 36 28">
+          <path
+            d="M2 22 8 11l6 11zM17 17l7-3 8 3-8 4zM17 17v5l7 3 8-3v-5m-8 4v4M21 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z"
+          />
+        </svg>
+      </div>
+      <div
+        class="scene"
+        data-scene="blank"
+        role="button"
+        tabindex="0"
+        aria-pressed="false"
+        aria-label="Blank paper"
+      >
+        <svg aria-hidden="true" viewBox="0 0 36 28"><path d="M9 3h12l6 6v15H9zM21 3v6h6" /></svg>
+      </div>
+    </div>
+    <div id="stageControls" role="toolbar" aria-label="Stage actions">
+      <div
+        class="tool"
+        id="resetScene"
+        role="button"
+        tabindex="0"
+        data-tool="reset"
+        aria-label="Reset current scene"
+      >
+        <svg viewBox="0 0 28 28" aria-hidden="true">
+          <path d="M5 11a9 9 0 1 1-.1 6M5 4v7h7" stroke-width="2.1" />
+        </svg>
+      </div>
+      <div
+        class="tool"
+        id="nuke"
+        role="button"
+        tabindex="0"
+        data-tool="nuke"
+        aria-label="Detonate stage nuke"
+      >
+        <svg viewBox="0 0 28 28" aria-hidden="true">
+          <g fill="currentColor" stroke="none">
+            <circle cx="14" cy="14" r="2.3" />
+            <path id="sector" d="M10.5 12 4.5 8.5A11 11 0 0 1 14 3v7a4 4 0 0 0-3.5 2Z" />
+            <use href="#sector" transform="rotate(120 14 14)" />
+            <use href="#sector" transform="rotate(240 14 14)" />
+          </g>
+        </svg>
+      </div>
+    </div>
+    <div id="dock" role="toolbar" aria-label="Tools">
+      <div id="bladeModes" role="toolbar" aria-label="World slash techniques" hidden>
+        <div
+          class="mode"
+          role="button"
+          tabindex="0"
+          data-mode="world"
+          aria-label="World slash"
+          aria-pressed="true"
+        >
+          <svg viewBox="0 0 28 28">
+            <path d="M3 22C12 18 20 10 24 3c-1 10-9 18-21 19Z" fill="currentColor" />
+          </svg>
+        </div>
+        <div
+          class="mode"
+          role="button"
+          tabindex="0"
+          data-mode="crosscut"
+          aria-label="Crosscut"
+          aria-pressed="false"
+        >
+          <svg viewBox="0 0 28 28">
+            <path d="M3 23 23 3 17 14Z M4 4l20 19-12-8Z" fill="currentColor" />
+          </svg>
+        </div>
+        <div
+          class="mode"
+          role="button"
+          tabindex="0"
+          data-mode="flurry"
+          aria-label="Blade flurry"
+          aria-pressed="false"
+        >
+          <svg viewBox="0 0 28 28">
+            <path d="m2 17 13-15-7 13zm4 6L24 2 13 21zm9 3L27 11l-6 13z" fill="currentColor" />
+          </svg>
+        </div>
+      </div>
+      <div
+        class="tool active"
+        role="button"
+        tabindex="0"
+        data-tool="draw"
+        aria-label="Draw"
+        aria-pressed="true"
+      >
+        <svg viewBox="0 0 28 28">
+          <path
+            d="m5 22 1.7-6.1L18.9 3.7a1.5 1.5 0 0 1 2.1 0l2.9 2.9a1.5 1.5 0 0 1 0 2.1L11.7 21 5 23zM16.7 6l5.2 5.1M7 16l4.8 4.9M9.6 18.4l10-10"
+          />
+          <path d="m5 23 1-3.2 2.2 2.2z" fill="currentColor" />
+        </svg>
+      </div>
+      <div
+        class="tool"
+        role="button"
+        tabindex="0"
+        data-tool="import"
+        aria-label="Import image"
+        aria-pressed="false"
+      >
+        <svg viewBox="0 0 28 28">
+          <path d="M21.3 12v10.4H4.2V5.6H15M5 20l5.2-6.2 3.8 4 2.9-2.9 4.2 4.1M21 3v7m-3.5-3.5h7" />
+          <circle cx="9.2" cy="10.5" r="1.5" fill="currentColor" stroke="none" />
+        </svg>
+      </div>
+      <div
+        class="tool"
+        role="button"
+        tabindex="0"
+        data-tool="slice"
+        aria-label="Precision slice"
+        aria-pressed="false"
+      >
+        <svg viewBox="0 0 28 28">
+          <path d="m4 22.5 5.9-6 2.1 2.2-5.8 6z" fill="currentColor" />
+          <path
+            d="m7.7 15.4 5.2 5.2m-2.6-4.3C15.2 12.1 20.6 7 24.2 3.1c-1.1 6.4-5.4 11.6-12.2 15.3z"
+          />
+        </svg>
+      </div>
+      <div
+        class="tool"
+        role="button"
+        tabindex="0"
+        data-tool="world"
+        aria-label="World slash"
+        aria-pressed="false"
+      >
+        <svg viewBox="0 0 28 28">
+          <path
+            d="M3 21C13 19 20.5 12.5 25 3c-1.2 11.2-7.9 19.6-22 18z"
+            fill="currentColor"
+            stroke-width=".8"
+          />
+          <path d="M7 24c4.3-.3 8.5-2 11.2-4.3" />
+        </svg>
+      </div>
+      <div
+        class="tool"
+        role="button"
+        tabindex="0"
+        data-tool="bomb"
+        aria-label="Drop bomb"
+        aria-pressed="false"
+      >
+        <svg viewBox="0 0 28 28">
+          <circle cx="12.4" cy="16.9" r="7.3" fill="currentColor" />
+          <path
+            d="m14 9.5 1.3-3 3.5 1.5-1 2.8M17.5 7c2-5 4.3 1.5 6.2-3M8.6 15.5c.5-1.6 1.3-2.3 2.5-2.8"
+          />
+          <path d="M9 15.2c.5-1.2 1.1-1.8 2.2-2.3" stroke="var(--paper)" />
+        </svg>
+      </div>
+      <span id="divider" aria-hidden="true"></span>
+      <div
+        class="tool"
+        role="button"
+        tabindex="0"
+        id="clear"
+        data-tool="clear"
+        aria-label="Clear stage"
+      >
+        <svg viewBox="0 0 24 24">
+          <path d="M3.7 6.8h16.6M9 6.3V4h6v2.3M6 7l.8 13h10.4l.8-13M10 10.5v6.2m4-6.2v6.2" />
+        </svg>
+      </div>
+    </div>
+    <input id="picker" type="file" accept="image/png,image/jpeg" multiple hidden />
+    <script>
+      "use strict";
+      const canvas = document.querySelector("#stage"),
+        ctx = canvas.getContext("2d");
+      const INK = "#111111",
+        PAPER = "#F4F3EE",
+        ORANGE = "#f55226",
+        BLUE = "#305ac6",
+        TAU = Math.PI * 2;
+      const pt = (x, y) => ({ x, y }),
+        add = (a, b) => pt(a.x + b.x, a.y + b.y);
+      const minus = (a, b) => pt(a.x - b.x, a.y - b.y),
+        mul = (a, n) => pt(a.x * n, a.y * n);
+      const dot = (a, b) => a.x * b.x + a.y * b.y,
+        cross = (a, b) => a.x * b.y - a.y * b.x;
+      const length = (a) => Math.hypot(a.x, a.y),
+        unit = (a) => mul(a, 1 / (length(a) || 1)),
+        perp = (a) => pt(-a.y, a.x);
+      const clamp = (x, a, b) => Math.max(a, Math.min(b, x)),
+        dist = (a, b) => length(minus(a, b));
+      const rot = (p, a) =>
+        pt(Math.cos(a) * p.x - Math.sin(a) * p.y, Math.sin(a) * p.x + Math.cos(a) * p.y);
+      const mix = (a, b, t) => add(a, mul(minus(b, a), t));
+      const rand = (a, b) => a + Math.random() * (b - a);
+      function seeded(seed) {
+        return () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296;
+      }
+      function polygon(g, p) {
+        g.beginPath();
+        g.moveTo(p[0].x, p[0].y);
+        for (let i = 1; i < p.length; i++) g.lineTo(p[i].x, p[i].y);
+        g.closePath();
+      }
+      const points = (arr) => arr.map(([x, y]) => pt(x, y));
+      const circle = (r, n = 48) =>
+        Array.from({ length: n }, (_, i) =>
+          pt(r * Math.cos((i * TAU) / n), r * Math.sin((i * TAU) / n)),
+        );
+      function bounds(p) {
+        let l = Infinity,
+          t = l,
+          r = -l,
+          b = -l;
+        for (const q of p) {
+          l = Math.min(l, q.x);
+          r = Math.max(r, q.x);
+          t = Math.min(t, q.y);
+          b = Math.max(b, q.y);
+        }
+        return { l, t, r, b };
+      }
+      function area(p) {
+        let a = 0;
+        for (let i = 0; i < p.length; i++) a += cross(p[i], p[(i + 1) % p.length]);
+        return a * 0.5;
+      }
+      function clean(p) {
+        let out = [];
+        for (const q of p) if (!out.length || dist(out.at(-1), q) > 0.0001) out.push(q);
+        if (out.length > 1 && dist(out[0], out.at(-1)) < 0.0001) out.pop();
+        let changed = true;
+        while (changed && out.length > 3) {
+          changed = false;
+          for (let i = 0; i < out.length; i++) {
+            let a = out[(i + out.length - 1) % out.length],
+              b = out[i],
+              c = out[(i + 1) % out.length];
+            if (Math.abs(cross(minus(b, a), minus(c, b))) < 1e-6) {
+              out.splice(i, 1);
+              changed = true;
+              break;
+            }
+          }
+        }
+        return area(out) < 0 ? out.reverse() : out;
+      }
+      function centroid(p) {
+        let x = 0,
+          y = 0,
+          s = 0;
+        for (let i = 0; i < p.length; i++) {
+          let a = p[i],
+            b = p[(i + 1) % p.length],
+            k = cross(a, b);
+          s += k;
+          x += (a.x + b.x) * k;
+          y += (a.y + b.y) * k;
+        }
+        return pt(x / (3 * s), y / (3 * s));
+      }
+      function convex(p) {
+        return p.every(
+          (b, i) =>
+            cross(minus(b, p[(i + p.length - 1) % p.length]), minus(p[(i + 1) % p.length], b)) >=
+            -1e-7,
+        );
+      }
+      function insideTri(p, a, b, c) {
+        return (
+          cross(minus(b, a), minus(p, a)) >= -0.000001 &&
+          cross(minus(c, b), minus(p, b)) >= -0.000001 &&
+          cross(minus(a, c), minus(p, c)) >= -0.000001
+        );
+      }
+      // Partition concave silhouettes into convex collision and clipping cells.
+      function partition(p) {
+        if (convex(p)) return [p];
+        let loop = p.slice(),
+          cells = [];
+        while (loop.length > 3) {
+          let clipped = false;
+          for (let i = 0; i < loop.length; i++) {
+            const a = loop[(i + loop.length - 1) % loop.length],
+              b = loop[i],
+              c = loop[(i + 1) % loop.length];
+            if (
+              cross(minus(b, a), minus(c, b)) <= 0 ||
+              loop.some((q) => q !== a && q !== b && q !== c && insideTri(q, a, b, c))
+            )
+              continue;
+            cells.push([a, b, c]);
+            loop.splice(i, 1);
+            clipped = true;
+            break;
+          }
+          if (!clipped) return [];
+        }
+        cells.push(loop);
+        let merged = true;
+        while (merged) {
+          merged = false;
+          outer: for (let i = 0; i < cells.length; i++)
+            for (let j = i + 1; j < cells.length; j++) {
+              let a = cells[i],
+                b = cells[j];
+              for (let k = 0; k < a.length; k++) {
+                let u = a[k],
+                  v = a[(k + 1) % a.length],
+                  h = b.indexOf(v);
+                if (h < 0 || b[(h + 1) % b.length] !== u) continue;
+                let join = Array.from(
+                  { length: a.length },
+                  (_, n) => a[(k + 1 + n) % a.length],
+                ).concat(Array.from({ length: b.length - 2 }, (_, n) => b[(h + 2 + n) % b.length]));
+                if (convex(join)) {
+                  cells[i] = join;
+                  cells.splice(j, 1);
+                  merged = true;
+                  break outer;
+                }
+              }
+            }
+        }
+        return cells;
+      }
+      function clip(p, o, n) {
+        let out = [];
+        for (let i = 0; i < p.length; i++) {
+          const a = p[i],
+            b = p[(i + 1) % p.length],
+            da = dot(minus(a, o), n),
+            db = dot(minus(b, o), n);
+          if (da >= 0) out.push(a);
+          if ((da > 0 && db < 0) || (da < 0 && db > 0)) out.push(mix(a, b, da / (da - db)));
+        }
+        return out;
+      }
+      // Shared interior edges cancel, leaving one perimeter for each connected fragment.
+      const pointKey = (p) => Math.round(p.x * 1e5) + "," + Math.round(p.y * 1e5);
+      function perimeters(cells) {
+        const edges = new Map();
+        for (const p of cells)
+          for (let i = 0; i < p.length; i++) {
+            let a = p[i],
+              b = p[(i + 1) % p.length],
+              ak = pointKey(a),
+              bk = pointKey(b);
+            if (ak === bk) continue;
+            if (!edges.delete(bk + "|" + ak)) edges.set(ak + "|" + bk, { a, b, ak, bk });
+          }
+        const from = new Map();
+        for (const e of edges.values()) {
+          if (!from.has(e.ak)) from.set(e.ak, []);
+          from.get(e.ak).push(e);
+        }
+        const out = [];
+        for (const e of edges.values()) {
+          if (e.used) continue;
+          let loop = [],
+            f = e;
+          while (f && !f.used) {
+            f.used = true;
+            loop.push(f.a);
+            if (f.bk === e.ak) break;
+            f = from.get(f.bk)?.find((k) => !k.used);
+          }
+          if (loop.length >= 3 && f?.bk === e.ak) out.push(clean(loop));
+        }
+        return out;
+      }
+      let W = 0,
+        H = 0,
+        dpr = 1,
+        bodies = [],
+        effects = [],
+        particles = [],
+        gesture = null,
+        tool = "draw",
+        freeze = 0,
+        live = false,
+        clearing = null,
+        epoch = 0;
+      let tremor = pt(0, 0),
+        shakeTime = 0,
+        dragHover = false,
+        now = performance.now(),
+        nextId = 0;
+      function body(p, mat, pos, angle = 0) {
+        p = clean(p);
+        let A = area(p);
+        if (p.length < 3 || A < 1) return null;
+        const c = centroid(p),
+          cells = partition(p);
+        if (!cells.length) return null;
+        let I = 0;
+        for (let i = 0; i < p.length; i++) {
+          let a = minus(p[i], c),
+            b = minus(p[(i + 1) % p.length], c);
+          I += cross(a, b) * (dot(a, a) + dot(a, b) + dot(b, b));
+        }
+        let mass = Math.max(0.08, A * 0.0018);
+        return {
+          id: nextId++,
+          p,
+          c,
+          cells,
+          mat,
+          pos,
+          angle,
+          v: pt(0, 0),
+          w: 0,
+          mass,
+          im: 1 / mass,
+          ii: 12 / (Math.max(1, I) * 0.0018),
+          r: Math.max(...p.map((q) => dist(q, c))),
+          A,
+          fuse: null,
+        };
+      }
+      const world = (b, q) => add(b.pos, rot(minus(q, b.c), b.angle)),
+        local = (b, q) => add(b.c, rot(minus(q, b.pos), -b.angle));
+      function spawn(p, m, pos, a = 0) {
+        const b = body(p, m, pos, a);
+        if (b) bodies.push(b);
+        return b;
+      }
+      function updateGeometry(b) {
+        const co = Math.cos(b.angle),
+          si = Math.sin(b.angle),
+          map = new Map();
+        for (let q of b.p) {
+          let x = q.x - b.c.x,
+            y = q.y - b.c.y;
+          map.set(q, pt(b.pos.x + x * co - y * si, b.pos.y + x * si + y * co));
+        }
+        b.wp = b.p.map((q) => map.get(q));
+        b.wcells = b.cells.map((p) => p.map((q) => map.get(q)));
+        b.box = bounds(b.wp);
+      }
+
+      // The material stays in its original coordinate frame throughout every cut.
+      function printed(poly, paint, seed = 1) {
+        const bb = bounds(poly),
+          ratio = 2,
+          margin = 2,
+          c = document.createElement("canvas");
+        c.width = Math.ceil((bb.r - bb.l + margin * 2) * ratio);
+        c.height = Math.ceil((bb.b - bb.t + margin * 2) * ratio);
+        const g = c.getContext("2d"),
+          l = bb.l - margin,
+          t = bb.t - margin;
+        g.scale(ratio, ratio);
+        g.translate(-l, -t);
+        polygon(g, poly);
+        g.clip();
+        paint(g, seeded(seed));
+        return { image: c, l, t, w: c.width / ratio, h: c.height / ratio };
+      }
+      function face(g, p, color) {
+        polygon(g, points(p));
+        g.fillStyle = color;
+        g.fill();
+        g.lineWidth = 1.05;
+        g.strokeStyle = INK;
+        g.stroke();
+      }
+      function hatch(g, p, spacing = 4, slope = -0.75, alpha = 0.75) {
+        g.save();
+        polygon(g, points(p));
+        g.clip();
+        const b = bounds(points(p)),
+          height = b.b - b.t,
+          span = Math.abs(height * slope);
+        g.strokeStyle = "rgba(17,17,17," + alpha + ")";
+        g.lineWidth = 0.7;
+        g.beginPath();
+        for (let x = b.l - span - 5; x < b.r + span + 5; x += spacing) {
+          g.moveTo(x, b.t - 1);
+          g.lineTo(x + height * slope, b.b + 1);
+        }
+        g.stroke();
+        g.restore();
+      }
+      function grain(g, random, bb, count) {
+        for (let i = 0; i < count; i++) {
+          g.fillStyle = i % 3 ? "rgba(20,18,13,.17)" : "rgba(255,253,241,.38)";
+          let s = 0.2 + random() * 0.9;
+          g.fillRect(bb.l + random() * (bb.r - bb.l), bb.t + random() * (bb.b - bb.t), s, s * 0.8);
+        }
+      }
+      function makeSphere(r) {
+        let p = circle(r, 100);
+        let mat = printed(
+          p,
+          (g, rng) => {
+            g.fillStyle = ORANGE;
+            g.fillRect(-r, -r, r * 2, r * 2);
+            // Variable-density ink dots engrave a rounded surface onto the flat cutout.
+            for (let y = -r; y <= r; y += 1.95)
+              for (let x = -r; x <= r; x += 2.05) {
+                let jx = x + (rng() - 0.5) * 1.7,
+                  jy = y + (rng() - 0.5) * 1.7;
+                let nx = jx / r,
+                  ny = jy / r,
+                  z = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
+                let light = clamp(-0.56 * nx - 0.63 * ny + 0.49 * z, -1, 1),
+                  shade = Math.pow((1 - light) * 0.62, 2);
+                if (rng() > 0.14 + shade * 0.88) continue;
+                g.beginPath();
+                g.arc(jx, jy, 0.17 + rng() * 0.49 + shade * 0.57, 0, TAU);
+                g.fillStyle = "rgba(42,25,18," + (0.2 + shade * 0.66) + ")";
+                g.fill();
+              }
+            grain(g, rng, bounds(p), 8000);
+          },
+          23,
+        );
+        return { p, mat };
+      }
+      function makeStairs() {
+        const front = [
+          [-77, 63],
+          [80, 63],
+          [80, -57],
+          [30, -57],
+          [30, -17],
+          [-22, -17],
+          [-22, 23],
+          [-77, 23],
+        ];
+        const dx = -27,
+          dy = -19;
+        const outline = [
+          [-77, 63],
+          [80, 63],
+          [80, -57],
+          [53, -76],
+          [3, -76],
+          [3, -36],
+          [-49, -36],
+          [-49, 4],
+          [-104, 4],
+          [-104, 44],
+        ];
+        let p = points(outline),
+          mat = printed(
+            p,
+            (g, rng) => {
+              g.fillStyle = BLUE;
+              g.fillRect(-110, -80, 210, 160);
+              // Each tread has its own light plane and a hatched riser.
+              const steps = [
+                [-77, -22, 23],
+                [-22, 30, -17],
+                [30, 80, -57],
+              ];
+              for (const [l, r, y] of steps) {
+                let tread = [
+                  [l, y],
+                  [l + dx, y + dy],
+                  [r + dx, y + dy],
+                  [r, y],
+                ];
+                let riser = [
+                  [l, y + 40],
+                  [l + dx, y + 40 + dy],
+                  [l + dx, y + dy],
+                  [l, y],
+                ];
+                face(g, riser, "#18397c");
+                hatch(g, riser, 2.8, -0.25, 0.72);
+                face(g, tread, "#7794de");
+              }
+              face(g, front, BLUE);
+              grain(g, rng, bounds(p), 6000);
+            },
+            4,
+          );
+        return { p, mat };
+      }
+      function makeCube() {
+        let p = points([
+          [0, -58],
+          [56, -32],
+          [56, 30],
+          [0, 60],
+          [-56, 31],
+          [-56, -32],
+        ]);
+        let mat = printed(
+          p,
+          (g, rng) => {
+            face(
+              g,
+              [
+                [-56, -32],
+                [0, -58],
+                [56, -32],
+                [0, -2],
+              ],
+              "#faf9f3",
+            );
+            face(
+              g,
+              [
+                [-56, -32],
+                [0, -2],
+                [0, 60],
+                [-56, 31],
+              ],
+              "#e7e6dd",
+            );
+            let side = [
+              [0, -2],
+              [56, -32],
+              [56, 30],
+              [0, 60],
+            ];
+            face(g, side, "#e2e1da");
+            hatch(g, side, 2.85, -0.52, 0.9);
+            grain(g, rng, bounds(p), 2200);
+          },
+          33,
+        );
+        return { p, mat };
+      }
+      function makeBeam() {
+        let p = points([
+          [-119, -15],
+          [106, -15],
+          [120, -5],
+          [120, 16],
+          [-105, 16],
+          [-119, 5],
+        ]);
+        let mat = printed(
+          p,
+          (g, rng) => {
+            face(
+              g,
+              [
+                [-119, -15],
+                [106, -15],
+                [120, -5],
+                [-105, -5],
+              ],
+              "#41423e",
+            );
+            let end = [
+              [-119, -15],
+              [-105, -5],
+              [-105, 16],
+              [-119, 5],
+            ];
+            face(g, end, "#94958b");
+            hatch(g, end, 2.5, -0.5);
+            face(
+              g,
+              [
+                [-105, -5],
+                [120, -5],
+                [120, 16],
+                [-105, 16],
+              ],
+              "#20211e",
+            );
+            grain(g, rng, bounds(p), 2900);
+          },
+          101,
+        );
+        return { p, mat };
+      }
+      function makeWedge() {
+        let p = points([
+          [-75, 30],
+          [35, -70],
+          [70, 32],
+          [-12, 56],
+        ]);
+        let mat = printed(
+          p,
+          (g, rng) => {
+            face(
+              g,
+              [
+                [-75, 30],
+                [35, -70],
+                [-12, 56],
+              ],
+              "#faf9f3",
+            );
+            let side = [
+              [35, -70],
+              [70, 32],
+              [-12, 56],
+            ];
+            face(g, side, "#d9d9d1");
+            hatch(g, side, 3.1, -0.55, 0.86);
+            grain(g, rng, bounds(p), 1600);
+          },
+          9,
+        );
+        return { p, mat };
+      }
+      function geometricScene() {
+        const wide = W >= 620,
+          s = Math.min(wide ? W / 1080 : W / 475, (H - 100) / (wide ? 630 : 610), 1.5);
+        const center = pt(W * 0.5, (H - (W < 520 ? 72 : 80)) * 0.51);
+        const place = (item, x, y, k, a = 0) => {
+          let scale = s * k,
+            pp = item.p.map((q) => mul(q, scale)),
+            m = { ...item.mat };
+          for (let key of ["l", "t", "w", "h"]) m[key] *= scale;
+          spawn(pp, m, add(center, pt(x * s, y * s)), a);
+        };
+        if (wide) {
+          place(makeCube(), -256, -116, 0.85, -0.095);
+          place(makeWedge(), 236, -121, 0.88, 0.13);
+          place(makeSphere(94), -100, -10, 1.06);
+          place(makeBeam(), -175, 143, 1.02, -0.26);
+          place(makeStairs(), 120, 91, 1.17, -0.045);
+        } else {
+          place(makeCube(), -121, -178, 0.72, -0.095);
+          place(makeWedge(), 105, -167, 0.71, 0.13);
+          place(makeSphere(94), -63, -18, 0.94);
+          place(makeBeam(), -48, 196, 0.88, -0.26);
+          place(makeStairs(), 88, 99, 0.93, -0.045);
+        }
+      }
+      let currentScene = "city";
+      const ivory = "#f5f2e8",
+        limestone = "#d9d6c9",
+        navy = "#243754",
+        glass = "#a5bdcc";
+      const rectPoints = (w, h) => [
+        [0, 0],
+        [w, 0],
+        [w, h],
+        [0, h],
+      ];
+      function inkRect(g, x, y, w, h, fill) {
+        g.fillStyle = fill;
+        g.fillRect(x, y, w, h);
+        g.lineWidth = 0.9;
+        g.strokeStyle = INK;
+        g.strokeRect(x, y, w, h);
+      }
+      function rule(g, x, y, x2, y2, color = INK, width = 0.9) {
+        line(g, pt(x, y), pt(x2, y2), color, width);
+      }
+      function disc(g, x, y, r, fill, outline = true) {
+        g.beginPath();
+        g.arc(x, y, r, 0, TAU);
+        g.fillStyle = fill;
+        g.fill();
+        if (outline) {
+          g.strokeStyle = INK;
+          g.lineWidth = 1;
+          g.stroke();
+        }
+      }
+      // Each printed part has its own silhouette, center of mass and texture.
+      // Model coordinates use the street or courtyard surface as the zero line.
+      function modelSheet(width, height) {
+        const scale = Math.min((W - (W < 600 ? 28 : 100)) / width, (H - 160) / height, 1.58);
+        const base = H * 0.5 + (height - 60) * scale * 0.47;
+        return function piece(x, y, outline, paint, fixed = false) {
+          const p = points(outline),
+            box = bounds(p);
+          const mat = printed(
+            p,
+            (g, rng) => {
+              g.fillStyle = ivory;
+              g.fillRect(box.l, box.t, box.r - box.l, box.b - box.t);
+              paint(g, rng);
+              grain(g, rng, box, Math.min(4200, Math.abs(area(p)) * 0.07));
+            },
+            Math.round((x + 611) * 71 + (y + 529) * 13),
+          );
+          for (const key of ["l", "t", "w", "h"]) mat[key] *= scale;
+          const poly = p.map((q) => mul(q, scale)),
+            c = centroid(poly);
+          const b = spawn(poly, mat, pt(W / 2 + x * scale + c.x, base + y * scale + c.y));
+          if (b && fixed) {
+            b.freeInertia = b.ii;
+            b.ii = 0;
+            b.im = 0;
+          }
+          return b;
+        };
+      }
+      function foundation(piece, x, width) {
+        const p = [
+          [0, 0],
+          [width, 0],
+          [width, 12],
+          [width - 8, 18],
+          [7, 18],
+          [0, 12],
+        ];
+        piece(
+          x,
+          0,
+          p,
+          (g) => {
+            inkRect(g, 0, 0, width, 5, "#444640");
+            inkRect(g, 0, 5, width, 12, limestone);
+            hatch(
+              g,
+              [
+                [0, 9],
+                [width, 9],
+                [width, 18],
+                [0, 18],
+              ],
+              5.5,
+              -0.7,
+              0.55,
+            );
+            for (let k = 12; k < width; k += 30) rule(g, k, 2, k + 10, 2, ivory, 1);
+          },
+          true,
+        );
+      }
+      function printSun(piece, x, y, r) {
+        const p = circle(r, 64).map((q) => [q.x, q.y]);
+        piece(
+          x,
+          y,
+          p,
+          (g) => {
+            g.fillStyle = ORANGE;
+            g.fillRect(-r, -r, r * 2, r * 2);
+            for (let i = 0; i < 9; i++) {
+              let yy = r * 0.19 + i * r * 0.091;
+              rule(g, -r, yy, r, yy, ivory, 0.62 + i * 0.14);
+            }
+          },
+          true,
+        );
+      }
+      function ribbonWindows(g, x, y, w, rows, gap, bg = navy) {
+        for (let j = 0; j < rows; j++) {
+          let yy = y + j * gap;
+          inkRect(g, x, yy, w, 7, bg);
+          for (let col = x + 9; col < x + w - 1; col += 11)
+            rule(g, col, yy + 0.5, col, yy + 6.5, ivory, 0.95);
+          rule(g, x, yy + 9, x + w + 1, yy + 9, INK, 0.62);
+        }
+      }
+      function cityBlock(piece, x, w, h, style) {
+        let d = 12,
+          roof = 7,
+          edge = w - d;
+        let p = [
+          [0, roof],
+          [d, 0],
+          [w, 0],
+          [w, h - 5],
+          [edge, h],
+          [0, h],
+        ];
+        piece(x, -h, p, (g) => {
+          face(
+            g,
+            [
+              [0, roof],
+              [d, 0],
+              [w, 0],
+              [edge, roof],
+            ],
+            ivory,
+          );
+          const side = [
+            [edge, roof],
+            [w, 0],
+            [w, h - 5],
+            [edge, h],
+          ];
+          face(g, side, style === "blue" ? "#294679" : limestone);
+          hatch(g, side, 3.2, -0.46, 0.6);
+          inkRect(g, 0, roof, edge, h - roof, style === "blue" ? BLUE : ivory);
+          if (style === "blue") {
+            for (let y = 18; y < h - 22; y += 20) {
+              inkRect(g, 5, y, edge - 10, 10, glass);
+              for (let xx = 12; xx < edge - 5; xx += 12) rule(g, xx, y, xx, y + 10, navy, 1.4);
+              inkRect(g, 3, y + 10, edge - 6, 3, ivory);
+            }
+            inkRect(g, 8, h - 21, edge - 16, 21, navy);
+            rule(g, edge / 2, h - 21, edge / 2, h, ivory, 1.2);
+          } else {
+            for (let y = 18; y < h - 38; y += 27)
+              for (let xx = 8; xx < edge - 10; xx += 19) {
+                inkRect(g, xx, y, 11, 16, navy);
+                rule(g, xx, y + 7, xx + 11, y + 7, ivory);
+                rule(g, xx - 2, y + 18, xx + 13, y + 18, INK, 1.15);
+              }
+            inkRect(g, 6, h - 31, edge - 12, 30, navy);
+            for (let xx = 9; xx < edge - 6; xx += 18) rule(g, xx, h - 30, xx, h - 1, ivory, 2);
+            face(
+              g,
+              [
+                [2, h - 36],
+                [edge - 3, h - 36],
+                [edge + 1, h - 27],
+                [-1, h - 27],
+              ],
+              ivory,
+            );
+            for (let xx = 4; xx < edge - 5; xx += 12)
+              face(
+                g,
+                [
+                  [xx, h - 36],
+                  [xx + 5, h - 36],
+                  [xx + 7, h - 27],
+                  [xx + 1, h - 27],
+                ],
+                ORANGE,
+              );
+          }
+        });
+      }
+      function decoTower(piece, x) {
+        let p = [
+          [0, 0],
+          [114, 0],
+          [114, -163],
+          [102, -163],
+          [102, -224],
+          [86, -224],
+          [86, -257],
+          [71, -257],
+          [71, -278],
+          [45, -278],
+          [45, -257],
+          [29, -257],
+          [29, -224],
+          [13, -224],
+          [13, -163],
+          [0, -163],
+        ];
+        piece(x, 0, p, (g) => {
+          g.fillStyle = "#e7e2cf";
+          g.fillRect(0, -280, 115, 280);
+          for (const [left, right, top] of [
+            [0, 13, -163],
+            [13, 29, -224],
+            [29, 45, -257],
+            [45, 71, -278],
+            [71, 86, -257],
+            [86, 102, -224],
+            [102, 114, -163],
+          ]) {
+            inkRect(g, left, top, right - left, -top, left >= 71 ? limestone : ivory);
+            for (let k = left + 3; k < right - 2; k += 5) {
+              g.fillStyle = left >= 71 ? "#535952" : navy;
+              g.fillRect(k, top + 10, 2.6, -top - 23);
+              for (let y = top + 18; y < -16; y += 11) {
+                g.fillStyle = ivory;
+                g.fillRect(k, y, 2.6, 2.1);
+              }
+            }
+            rule(g, left, top + 4, right, top + 4);
+            rule(g, right - 1, top + 3, right - 1, -2, INK, 0.55);
+          }
+          face(
+            g,
+            [
+              [38, 0],
+              [38, -24],
+              [47, -29],
+              [57, -47],
+              [67, -29],
+              [76, -24],
+              [76, 0],
+            ],
+            limestone,
+          );
+          face(
+            g,
+            [
+              [46, 0],
+              [46, -20],
+              [57, -31],
+              [68, -20],
+              [68, 0],
+            ],
+            navy,
+          );
+          for (let k = 0; k < 3; k++) {
+            rule(g, 48 + k * 8, -17, 48 + k * 8, 0, ivory, 0.8);
+          }
+        });
+        piece(
+          x + 45,
+          -278,
+          [
+            [0, 0],
+            [2, -10],
+            [8, -10],
+            [10, -23],
+            [12, -24],
+            [13, -54],
+            [15, -54],
+            [16, -24],
+            [18, -23],
+            [19, -10],
+            [24, -10],
+            [26, 0],
+          ],
+          (g) => {
+            g.fillStyle = ORANGE;
+            g.fillRect(0, -55, 26, 55);
+            rule(g, 3, -5, 24, -5);
+            rule(g, 14, -47, 14, 0);
+          },
+        );
+      }
+      function tank(piece, x, deckY) {
+        const p = [
+          [0, 0],
+          [6, -23],
+          [3, -23],
+          [3, -51],
+          [1, -52],
+          [21, -64],
+          [41, -52],
+          [39, -51],
+          [39, -23],
+          [36, -23],
+          [42, 0],
+          [38, 0],
+          [32, -21],
+          [10, -21],
+          [4, 0],
+        ];
+        piece(x, deckY, p, (g) => {
+          face(
+            g,
+            [
+              [1, -52],
+              [21, -64],
+              [41, -52],
+            ],
+            "#343a37",
+          );
+          inkRect(g, 3, -52, 36, 29, ORANGE);
+          for (let i = 7; i < 38; i += 4) rule(g, i, -51, i, -24, "#7e391e", 0.7);
+          for (let yy of [-48, -31, -24]) rule(g, 3, yy, 39, yy, INK, 1.6);
+          rule(g, 8, -20, 37, -2);
+          rule(g, 34, -20, 5, -2);
+        });
+      }
+      function sawmill(piece, x) {
+        let p = [
+          [0, 0],
+          [108, 0],
+          [108, -93],
+          [81, -79],
+          [81, -93],
+          [54, -79],
+          [54, -93],
+          [27, -79],
+          [27, -93],
+          [0, -79],
+        ];
+        piece(x, 0, p, (g) => {
+          g.fillStyle = "#ea835b";
+          g.fillRect(0, -94, 109, 95);
+          for (let y = -70; y < 0; y += 9) {
+            rule(g, 0, y, 108, y, "#835646", 0.55);
+            for (let xx = (y % 2) * 9; xx < 108; xx += 18)
+              rule(g, xx, y, xx, y + 9, "#835646", 0.5);
+          }
+          for (let i = 0; i < 4; i++)
+            face(
+              g,
+              [
+                [i * 27 + 5, -79],
+                [i * 27 + 24, -88],
+                [i * 27 + 24, -79],
+              ],
+              ivory,
+            );
+          ribbonWindows(g, 7, -65, 94, 2, 18);
+          inkRect(g, 31, -25, 48, 25, navy);
+          for (let y = -21; y < 0; y += 4) rule(g, 33, y, 77, y, "#9babae", 0.7);
+        });
+      }
+      function vehicle(piece, x, y, w, train = false) {
+        const h = train ? 38 : 25;
+        const p = [
+          [0, -6],
+          [1, -h + 8],
+          [7, -h],
+          [w - 17, -h],
+          [w - 5, -h + 10],
+          [w, -h + 14],
+          [w, -5],
+          [w - 7, -5],
+          [w - 9, 0],
+          [w - 17, 0],
+          [w - 19, -5],
+          [20, -5],
+          [18, 0],
+          [10, 0],
+          [8, -5],
+        ];
+        piece(x, y, p, (g) => {
+          g.fillStyle = train ? ORANGE : "#e8b740";
+          g.fillRect(0, -h, w, h);
+          const windows = train ? Math.floor((w - 26) / 15) : 3,
+            ww = (w - 22) / windows;
+          for (let k = 0; k < windows; k++)
+            inkRect(g, 6 + k * ww, -h + 6, ww - 3, train ? 12 : 7, navy);
+          face(
+            g,
+            [
+              [w - 17, -h + 5],
+              [w - 8, -h + 12],
+              [w - 5, -h + 15],
+              [w - 17, -h + 15],
+            ],
+            glass,
+          );
+          rule(g, 1, -9, w - 1, -9, ivory, 2);
+          for (let xx of [14, w - 13]) {
+            disc(g, xx, -5.5, 5.7, INK);
+            disc(g, xx, -5.5, 2.4, ivory, false);
+          }
+          if (train)
+            for (let xx of [8, w - 27]) {
+              g.strokeStyle = INK;
+              g.strokeRect(xx, -h + 3, 12, h - 12);
+            }
+        });
+      }
+      function tree(piece, x, y, h) {
+        const r = h * 0.22,
+          cy = -h + r;
+        let p = [
+          [-3, 0],
+          [-3, cy + r],
+        ];
+        for (let i = 0; i <= 24; i++) {
+          const a = Math.PI * 0.5 + (i * TAU) / 24;
+          if (i === 0 || i === 24) continue;
+          p.push([Math.cos(a) * r, cy + Math.sin(a) * r]);
+        }
+        p.push([3, cy + r], [3, 0]);
+        piece(x, y, p, (g) => {
+          disc(g, 0, cy, r, "#66785c", false);
+          g.fillStyle = "#464838";
+          g.fillRect(-2, cy + 4, 4, h);
+          for (let i = 0; i < 4; i++) {
+            rule(g, 0, cy + 16 - i * 4, -r * 0.52, cy + 7 - i * 3, INK, 0.8);
+            rule(g, 0, cy + 13 - i * 4, r * 0.54, cy + 2 - i * 3, INK, 0.8);
+          }
+        });
+      }
+      function cityScene() {
+        const compact = W < 600,
+          piece = modelSheet(compact ? 444 : 820, 394);
+        if (compact) {
+          foundation(piece, -208, 416);
+          printSun(piece, -144, -248, 38);
+          cityBlock(piece, -199, 79, 114, "shop");
+          cityBlock(piece, -114, 77, 179, "blue");
+          decoTower(piece, -31);
+          cityBlock(piece, 91, 79, 126, "shop");
+          tank(piece, 104, -126);
+          tree(piece, 186, 0, 64);
+        } else {
+          foundation(piece, -381, 762);
+          printSun(piece, -243, -237, 46);
+          sawmill(piece, -359);
+          cityBlock(piece, -237, 88, 181, "blue");
+          cityBlock(piece, -137, 73, 101, "shop");
+          decoTower(piece, -52);
+          cityBlock(piece, 75, 107, 145, "shop");
+          tank(piece, 107, -145);
+          cityBlock(piece, 197, 85, 87, "blue");
+          vehicle(piece, 291, 0, 57);
+          tree(piece, 362, 0, 70);
+        }
+      }
+      function masonry(g, w, h, course = 15) {
+        for (let y = -h + course, row = 0; y < 0; y += course, row++) {
+          rule(g, 0, y, w, y, "#878777", 0.65);
+          for (let x = row % 2 ? 8 : 24; x < w; x += 32)
+            rule(g, x, y, x, y + course, "#878777", 0.65);
+        }
+      }
+      function archBay(piece, x, w, h, castle = false) {
+        const r = w * (castle ? 0.24 : 0.34),
+          spring = castle ? 32 : 22,
+          mid = w / 2;
+        const p = [
+          [0, 0],
+          [0, -h],
+        ];
+        if (castle) {
+          const pitch = w / 6;
+          for (let k = 0; k < 6; k++)
+            p.push(
+              [k * pitch + pitch * 0.52, -h],
+              [k * pitch + pitch * 0.52, -h + 12],
+              [(k + 1) * pitch, -h + 12],
+              [(k + 1) * pitch, -h],
+            );
+        } else p.push([w, -h]);
+        p.push([w, 0], [mid + r, 0], [mid + r, -spring]);
+        for (let k = 1; k <= 18; k++) {
+          let a = (k * Math.PI) / 18;
+          p.push([mid + r * Math.cos(a), -spring - r * Math.sin(a)]);
+        }
+        p.push([mid - r, 0]);
+        piece(x, 0, p, (g) => {
+          g.fillStyle = castle ? ivory : "#c5c7b8";
+          g.fillRect(0, -h, w, h);
+          masonry(g, w, h, castle ? 15 : 12);
+          if (!castle) {
+            inkRect(g, 0, -h, w, 10, BLUE);
+            rule(g, 0, -h + 12, w, -h + 12, INK, 2);
+            for (let xx = 5; xx < w; xx += 13) disc(g, xx, -h + 5, 1.3, ivory, false);
+          } else {
+            inkRect(g, 0, -h + 17, w, 6, limestone);
+            for (let side of [13, w - 36]) {
+              const yy = -h + 29;
+              face(
+                g,
+                [
+                  [side, yy],
+                  [side + 22, yy],
+                  [side + 22, yy + 37],
+                  [side + 11, yy + 47],
+                  [side, yy + 37],
+                ],
+                BLUE,
+              );
+              face(
+                g,
+                [
+                  [side + 11, yy + 11],
+                  [side + 16, yy + 19],
+                  [side + 11, yy + 27],
+                  [side + 6, yy + 19],
+                ],
+                ivory,
+              );
+              rule(g, side - 2, yy, side + 24, yy, INK, 2);
+            }
+          }
+          for (let i = 0; i < 15; i++) {
+            let a = (i * Math.PI) / 15,
+              b = ((i + 1) * Math.PI) / 15;
+            const at = (t, rr) => [mid + Math.cos(t) * rr, -spring - Math.sin(t) * rr];
+            face(
+              g,
+              [at(a, r), at(b, r), at(b, r + 10), at(a, r + 10)],
+              i === 7 ? "#aeaa94" : ivory,
+            );
+          }
+          for (const xx of [mid - r - 10, mid + r]) inkRect(g, xx, -spring, 10, spring, limestone);
+        });
+      }
+      function airship(piece, x, y) {
+        const p = [
+          [-61, -6],
+          [-77, -19],
+          [-73, -3],
+          [-78, 9],
+          [-56, 7],
+          [-44, 14],
+          [-15, 20],
+          [-9, 27],
+          [14, 27],
+          [20, 19],
+          [43, 14],
+          [57, 7],
+          [65, 0],
+          [53, -10],
+          [32, -16],
+          [5, -20],
+          [-20, -19],
+          [-44, -14],
+        ];
+        piece(
+          x,
+          y,
+          p,
+          (g) => {
+            g.fillStyle = ivory;
+            g.fillRect(-80, -21, 150, 52);
+            face(
+              g,
+              [
+                [-62, -5],
+                [-77, -19],
+                [-73, -3],
+                [-78, 9],
+                [-55, 7],
+              ],
+              BLUE,
+            );
+            g.beginPath();
+            g.moveTo(-62, -4);
+            g.bezierCurveTo(-30, -13, 31, -15, 65, 0);
+            g.bezierCurveTo(33, -4, -24, -5, -62, -4);
+            g.fillStyle = ORANGE;
+            g.fill();
+            g.strokeStyle = INK;
+            g.lineWidth = 0.8;
+            g.stroke();
+            g.beginPath();
+            g.moveTo(-57, 5);
+            g.bezierCurveTo(-31, 14, 35, 15, 62, 2);
+            g.stroke();
+            for (let xx of [-32, 18]) {
+              g.beginPath();
+              g.moveTo(xx, -19);
+              g.quadraticCurveTo(xx - 7, 0, xx, 20);
+              g.stroke();
+            }
+            inkRect(g, -12, 19, 30, 9, navy);
+            for (let xx = -8; xx < 15; xx += 7) inkRect(g, xx, 20, 4, 3, glass);
+          },
+          true,
+        );
+      }
+      function bridgeScene() {
+        const compact = W < 600,
+          n = compact ? 3 : 5,
+          w = compact ? 105 : 125,
+          h = compact ? 106 : 140,
+          total = n * w;
+        const piece = modelSheet(total + 75, compact ? 300 : 360);
+        foundation(piece, -total / 2 - 16, total + 32);
+        for (let k = 0; k < n; k++) archBay(piece, -total / 2 + k * w, w, h);
+        // Independent deck sections rest on the piers. Removing a bay drops its load.
+        for (let k = 0; k < n; k++)
+          piece(-total / 2 + k * w, -h - 10, rectPoints(w, 10), (g) => {
+            inkRect(g, 0, 0, w, 10, navy);
+            rule(g, 0, 2, w, 2, ivory, 1.3);
+            for (let xx = 6; xx < w; xx += 12) disc(g, xx, 7, 1, ivory, false);
+          });
+        const carWidth = compact ? 88 : 112,
+          trainStart = compact ? -137 : -203;
+        for (let k = 0; k < 3; k++)
+          vehicle(piece, trainStart + k * (carWidth + 2), -h - 10, carWidth, true);
+        airship(piece, compact ? -62 : -154, compact ? -223 : -266);
+        printSun(piece, compact ? 99 : 207, compact ? -207 : -234, compact ? 24 : 36);
+      }
+      function turret(piece, x, w, h, roof, flag = false) {
+        let shoulder = 5,
+          wall = [
+            [4, 0],
+            [w - 4, 0],
+            [w - 8, -h + 30],
+            [w, -h + 22],
+            [w, -h],
+            [0, -h],
+            [0, -h + 22],
+            [8, -h + 30],
+          ];
+        piece(x, 0, wall, (g) => {
+          g.fillStyle = ivory;
+          g.fillRect(0, -h, w, h);
+          masonry(g, w, h, 16);
+          const side = [
+            [w - 19, 0],
+            [w, 0],
+            [w, -h],
+            [w - 16, -h],
+          ];
+          face(g, side, limestone);
+          hatch(g, side, 3.6, -0.5, 0.52);
+          inkRect(g, 0, -h + 14, w, 8, limestone);
+          for (let xx = 7; xx < w - 3; xx += 12)
+            face(
+              g,
+              [
+                [xx, -h + 21],
+                [xx + 6, -h + 21],
+                [xx + 5, -h + 30],
+                [xx + 1, -h + 30],
+              ],
+              limestone,
+            );
+          for (let yy = -h + 50; yy < -12; yy += 44) {
+            const xx = w * 0.42;
+            face(
+              g,
+              [
+                [xx - 4, yy + 15],
+                [xx - 4, yy],
+                [xx, yy - 6],
+                [xx + 4, yy],
+                [xx + 4, yy + 15],
+              ],
+              navy,
+            );
+          }
+        });
+        const peak = roof,
+          p = [
+            [-shoulder, 0],
+            [w * 0.5, -peak],
+            [w + shoulder, 0],
+          ];
+        piece(x, -h, p, (g) => {
+          g.fillStyle = BLUE;
+          g.fillRect(-6, -peak, w + 12, peak);
+          face(
+            g,
+            [
+              [w * 0.5, -peak],
+              [w * 0.7, 0],
+              [w + shoulder, 0],
+            ],
+            "#243f7c",
+          );
+          for (let y = -peak + 12; y < 0; y += 9) {
+            rule(g, -4, y, w + 4, y, "#122849", 0.8);
+            for (let xx = (Math.floor(y / 9) % 2) * 4; xx < w; xx += 10)
+              rule(g, xx, y, xx - 1, y + 4, "#182b4b", 0.7);
+          }
+          rule(g, w * 0.5, -peak, w * 0.28, 0, "#a8b4c6", 1.1);
+        });
+        if (flag)
+          piece(
+            x + w * 0.5 - 1,
+            -h - peak,
+            [
+              [0, 0],
+              [0, -35],
+              [3, -35],
+              [3, -32],
+              [34, -29],
+              [22, -23],
+              [33, -17],
+              [3, -20],
+              [3, 0],
+            ],
+            (g) => {
+              g.fillStyle = ORANGE;
+              g.fillRect(0, -36, 36, 37);
+              inkRect(g, 0, -35, 3, 35, navy);
+            },
+          );
+      }
+      function castleScene() {
+        const compact = W < 600,
+          piece = modelSheet(compact ? 416 : 715, compact ? 352 : 404);
+        const gate = compact ? 128 : 152,
+          w = compact ? 55 : 70;
+        const length = compact ? 382 : 636;
+        foundation(piece, -length / 2, length);
+        archBay(piece, -gate / 2, gate, compact ? 135 : 160, true);
+        turret(piece, -gate / 2 - w, w, compact ? 181 : 218, compact ? 63 : 82, true);
+        turret(piece, gate / 2, w, compact ? 162 : 189, compact ? 48 : 66);
+        function wing(x, width, height) {
+          let p = [
+              [0, 0],
+              [0, -height],
+            ],
+            pitch = width / 4;
+          for (let i = 0; i < 4; i++) {
+            let k = i * pitch;
+            p.push(
+              [k + pitch * 0.55, -height],
+              [k + pitch * 0.55, -height + 10],
+              [k + pitch, -height + 10],
+              [k + pitch, -height],
+            );
+          }
+          p.push([width, 0]);
+          piece(x, 0, p, (g) => {
+            g.fillStyle = limestone;
+            g.fillRect(0, -height, width, height);
+            masonry(g, width, height, 13);
+            inkRect(g, 0, -height + 16, width, 4, ivory);
+            for (let xx = 10; xx < width; xx += 20) inkRect(g, xx, -height + 32, 3, 14, navy);
+          });
+        }
+        let wingWidth = compact ? 41 : 82;
+        wing(-gate / 2 - w - wingWidth, wingWidth, compact ? 70 : 86);
+        wing(gate / 2 + w, wingWidth, compact ? 63 : 79);
+        if (!compact) {
+          turret(piece, -279, 47, 131, 44);
+          turret(piece, 229, 48, 109, 41);
+          tree(piece, 297, 0, 54);
+        } else {
+          tree(piece, 179, 0, 53);
+        }
+        printSun(piece, compact ? 96 : 208, compact ? -252 : -275, compact ? 27 : 40);
+      }
+      function starter() {
+        if (currentScene === "city") cityScene();
+        else if (currentScene === "bridge") bridgeScene();
+        else if (currentScene === "castle") castleScene();
+        else if (currentScene === "shapes") geometricScene();
+      }
+      function markScene(name) {
+        currentScene = name;
+        for (let el of document.querySelectorAll("[data-scene]")) {
+          el.setAttribute("aria-pressed", String(el.dataset.scene === name));
+        }
+      }
+      function loadScene(name) {
+        cancelNuke();
+        resetPreset = name;
+        queuedCuts.length = 0;
+        impactSoundsUntil = 0;
+        epoch++;
+        gesture = null;
+        clearing = null;
+        freeze = 0;
+        live = false;
+        dragHover = false;
+        tremor = pt(0, 0);
+        accum = 0;
+        bodies.length = 0;
+        effects.length = 0;
+        particles.length = 0;
+        markScene(name);
+        starter();
+      }
+      for (const el of document.querySelectorAll("[data-scene]")) {
+        const choose = () => {
+          wakeAudio();
+          loadScene(el.dataset.scene);
+          tone(240, 160, 0.055, 0.055, "triangle");
+        };
+        el.addEventListener("click", choose);
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            choose();
+          }
+        });
+      }
+      function materialForDrawing(p) {
+        let c = [ORANGE, BLUE, "#e8e6da", "#343633"][drawCount++ % 4];
+        return printed(
+          p,
+          (g, rng) => {
+            let b = bounds(p);
+            g.fillStyle = c;
+            g.fillRect(b.l, b.t, b.r - b.l, b.b - b.t);
+            grain(g, rng, b, Math.min(13000, Math.abs(area(p)) * 0.23));
+          },
+          drawCount * 37,
+        );
+      }
+      let drawCount = 0;
+      // Fixed-step rigid-body dynamics with angular impulses and Coulomb friction.
+      const velocityAt = (b, r) => add(b.v, mul(perp(r), b.w));
+      function kick(b, j, r) {
+        b.v = add(b.v, mul(j, b.im));
+        b.w += cross(r, j) * b.ii;
+      }
+      function collide(a, b, n, q, rest) {
+        const ra = minus(q, a.pos),
+          rb = b ? minus(q, b.pos) : pt(0, 0);
+        let rel = minus(velocityAt(a, ra), b ? velocityAt(b, rb) : pt(0, 0)),
+          vn = dot(rel, n);
+        if (vn >= 0) return;
+        debrisSound(-vn, b ? Math.min(a.mass, b.mass) : a.mass);
+        const denom = (d) =>
+          a.im + (b?.im || 0) + cross(ra, d) ** 2 * a.ii + (b ? cross(rb, d) ** 2 * b.ii : 0);
+        const j = (-(1 + (vn < -65 ? rest : 0)) * vn) / denom(n),
+          imp = mul(n, j);
+        kick(a, imp, ra);
+        if (b) kick(b, mul(imp, -1), rb);
+        const t = perp(n);
+        rel = minus(velocityAt(a, ra), b ? velocityAt(b, rb) : pt(0, 0));
+        const jt = clamp(-dot(rel, t) / denom(t), -j * 0.55, j * 0.55),
+          fr = mul(t, jt);
+        kick(a, fr, ra);
+        if (b) kick(b, mul(fr, -1), rb);
+      }
+      function axes(poly) {
+        let out = [];
+        for (let i = 0; i < poly.length; i++)
+          out.push(unit(perp(minus(poly[(i + 1) % poly.length], poly[i]))));
+        return out;
+      }
+      function project(p, d) {
+        let lo = Infinity,
+          hi = -Infinity;
+        for (const q of p) {
+          let v = dot(q, d);
+          lo = Math.min(lo, v);
+          hi = Math.max(hi, v);
+        }
+        return [lo, hi];
+      }
+      function sat(p, q) {
+        let best = Infinity,
+          n;
+        for (const axis of [...axes(p), ...axes(q)]) {
+          const [a, b] = project(p, axis),
+            [c, d] = project(q, axis),
+            left = b - c,
+            right = d - a;
+          if (left <= 0 || right <= 0) return null;
+          const depth = Math.min(left, right);
+          if (depth < best) {
+            best = depth;
+            n = left < right ? mul(axis, -1) : axis;
+          }
+        }
+        let t = perp(n),
+          [pl] = project(p, n),
+          [, qh] = project(q, n);
+        let ap = p.filter((v) => dot(v, n) < pl + 1.1),
+          bq = q.filter((v) => dot(v, n) > qh - 1.1);
+        const [al, ah] = project(ap, t),
+          [bl, bh] = project(bq, t);
+        let low = Math.max(al, bl),
+          high = Math.min(ah, bh),
+          mid = (low + high) / 2;
+        const at = (k) => add(mul(n, (pl + qh) / 2), mul(t, k));
+        return { n, depth: best, contacts: high - low > 3 ? [at(low), at(high)] : [at(mid)] };
+      }
+      function pair(a, b) {
+        if (!a.im && !b.im) return;
+        let A = a.box,
+          B = b.box;
+        if (A.r <= B.l || B.r <= A.l || A.b <= B.t || B.b <= A.t) return;
+        let hit = null;
+        for (let p of a.wcells)
+          for (let q of b.wcells) {
+            let h = sat(p, q);
+            if (h && (!hit || h.depth > hit.depth)) hit = h;
+          }
+        if (!hit) return;
+        const { n, depth, contacts } = hit,
+          move = mul(n, (Math.max(0, depth - 0.2) * 0.56) / (a.im + b.im));
+        a.pos = add(a.pos, mul(move, a.im));
+        b.pos = minus(b.pos, mul(move, b.im));
+        for (let q of contacts) collide(a, b, n, q, 0.22);
+      }
+      function boundary(b, n, penetration) {
+        if (!b.im || penetration <= 0) return;
+        const [lo] = project(b.wp, n);
+        let contact = b.wp.filter((q) => dot(q, n) < lo + 1.6);
+        if (contact.length > 2) {
+          let t = perp(n);
+          contact.sort((a, c) => dot(a, t) - dot(c, t));
+          contact = [contact[0], contact.at(-1)];
+        }
+        for (let q of contact) collide(b, null, n, q, 0.24);
+        b.pos = add(b.pos, mul(n, penetration * 0.84));
+      }
+      function step(dt) {
+        for (let b of bodies) {
+          if (!b.im) continue;
+          if (b.delay) {
+            b.v = add(b.v, b.delay);
+            b.delay = null;
+          }
+          b.v.y += 940 * dt;
+          b.v.x *= 0.9992;
+          b.w *= 0.998;
+          b.w = clamp(b.w, -20, 20);
+          b.pos = add(b.pos, mul(b.v, dt));
+          b.angle += b.w * dt;
+          if (b.fuse !== null) {
+            let old = b.fuse;
+            b.fuse -= dt;
+            if (Math.ceil(old * 5) !== Math.ceil(b.fuse * 5) && b.fuse > 0) fuseSound();
+          }
+        }
+        for (let pass = 0; pass < 4; pass++) {
+          for (let b of bodies) {
+            updateGeometry(b);
+            boundary(b, pt(0, -1), b.box.b - (H - 2));
+            boundary(b, pt(1, 0), 1 - b.box.l);
+            boundary(b, pt(-1, 0), b.box.r - W + 1);
+            boundary(b, pt(0, 1), -b.box.t);
+          }
+          for (let i = 0; i < bodies.length; i++)
+            for (let j = i + 1; j < bodies.length; j++) pair(bodies[i], bodies[j]);
+        }
+        for (const b of bodies.slice())
+          if (b.fuse !== null && b.fuse <= 0 && bodies.includes(b)) explode(b);
+      }
+
+      let ac,
+        noiseBuffer,
+        master,
+        room,
+        impactSoundsUntil = 0,
+        nextImpactSound = 0;
+      const swordVoices = [];
+      function wakeAudio() {
+        try {
+          if (!ac) {
+            const Audio = window.AudioContext || window.webkitAudioContext;
+            if (!Audio) return;
+            ac = new Audio({ latencyHint: "interactive" });
+            master = ac.createDynamicsCompressor();
+            master.threshold.value = -12;
+            master.knee.value = 9;
+            master.ratio.value = 5;
+            master.attack.value = 0.003;
+            master.release.value = 0.16;
+            const ceiling = ac.createWaveShaper();
+            ceiling.curve = Float32Array.from({ length: 2049 }, (_, i) => {
+              const x = i / 1024 - 1,
+                a = Math.abs(x);
+              return a < 0.68 ? x : Math.sign(x) * (0.68 + 0.27 * Math.tanh((a - 0.68) / 0.27));
+            });
+            const output = ac.createGain();
+            output.gain.value = 0.93;
+            master.connect(ceiling).connect(output).connect(ac.destination);
+            noiseBuffer = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+            const data = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < data.length; i++) data[i] = rand(-1, 1);
+            // Sparse early reflections give the edge a stereo tail without blurring its attack.
+            room = ac.createConvolver();
+            const ir = ac.createBuffer(2, Math.ceil(ac.sampleRate * 0.78), ac.sampleRate);
+            for (let ch = 0; ch < 2; ch++) {
+              const channel = ir.getChannelData(ch);
+              let memory = 0;
+              for (let i = 0; i < channel.length; i++) {
+                const t = i / ac.sampleRate;
+                memory = 0.55 * memory + 0.45 * rand(-1, 1);
+                if (t > 0.031) channel[i] = memory * 0.044 * Math.exp(-t * 7.9);
+              }
+              for (const [delay, level] of [
+                [0.023, 0.62],
+                [0.049, 0.39],
+                [0.087, 0.24],
+                [0.14, 0.13],
+              ])
+                channel[Math.floor(ac.sampleRate * (delay + ch * 0.006))] += level;
+            }
+            room.normalize = false;
+            room.buffer = ir;
+            const wet = ac.createGain();
+            wet.gain.value = 0.18;
+            room.connect(wet).connect(master);
+          }
+          if (ac.state === "suspended") ac.resume().catch(() => {});
+        } catch {}
+      }
+      function noise(type, f1, f2, duration, volume, delay = 0, output = master, attack = 0.006) {
+        if (!ac) return;
+        const t = ac.currentTime + delay,
+          source = ac.createBufferSource(),
+          filter = ac.createBiquadFilter(),
+          amp = ac.createGain();
+        source.buffer = noiseBuffer;
+        filter.type = type;
+        filter.Q.value = 0.8;
+        filter.frequency.setValueAtTime(f1, t);
+        filter.frequency.exponentialRampToValueAtTime(f2, t + duration);
+        amp.gain.setValueAtTime(0.0001, t);
+        amp.gain.exponentialRampToValueAtTime(volume, t + Math.min(attack, duration * 0.45));
+        amp.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+        source.connect(filter).connect(amp).connect(output);
+        source.start(t, Math.random() * 0.8);
+        source.stop(t + duration + 0.01);
+        source.onended = () => {
+          source.disconnect();
+          filter.disconnect();
+          amp.disconnect();
+        };
+      }
+      function tone(f1, f2, duration, volume, type = "sine", delay = 0, output = master) {
+        if (!ac) return;
+        const t = ac.currentTime + delay,
+          osc = ac.createOscillator(),
+          amp = ac.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(f1, t);
+        osc.frequency.exponentialRampToValueAtTime(f2, t + duration);
+        amp.gain.setValueAtTime(0.0001, t);
+        amp.gain.exponentialRampToValueAtTime(volume, t + 0.003);
+        amp.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+        osc.connect(amp).connect(output);
+        osc.start(t);
+        osc.stop(t + duration + 0.008);
+        osc.onended = () => {
+          osc.disconnect();
+          amp.disconnect();
+        };
+      }
+      function fuseSound() {
+        noise("highpass", 3500, 7200, 0.077, 0.12);
+        tone(1700, 1150, 0.026, 0.049, "triangle");
+      }
+      function sweepBand(output, start, peak, tail, duration, arrival, amplitude, q) {
+        const t = ac.currentTime,
+          s = ac.createBufferSource(),
+          f = ac.createBiquadFilter(),
+          g = ac.createGain();
+        s.buffer = noiseBuffer;
+        f.type = "bandpass";
+        f.Q.value = q;
+        f.frequency.setValueAtTime(start, t);
+        f.frequency.exponentialRampToValueAtTime(peak, t + arrival);
+        f.frequency.exponentialRampToValueAtTime(tail, t + duration);
+        g.gain.setValueAtTime(0.001, t);
+        g.gain.exponentialRampToValueAtTime(amplitude, t + arrival);
+        g.gain.exponentialRampToValueAtTime(amplitude * 0.33, t + arrival + 0.025);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+        s.connect(f).connect(g).connect(output);
+        s.start(t, Math.random() * 0.9);
+        s.stop(t + duration + 0.005);
+        s.onended = () => {
+          s.disconnect();
+          f.disconnect();
+          g.disconnect();
+        };
+      }
+      function slashSound(kind, hitCount, speed, direction, focus, index = 0) {
+        if (!ac) return;
+        const heavy = kind === "world",
+          crossed = kind === "crosscut",
+          flurry = kind === "flurry";
+        const weight = heavy ? 1 : crossed ? 0.79 : flurry ? 0.43 : 0.36;
+        const velocity = clamp(speed / 1450, 0, 1);
+        const t = ac.currentTime,
+          arrival = heavy ? 0.077 : crossed ? 0.043 : flurry ? 0.015 : 0.023;
+        const pitch =
+          (1.16 - weight * 0.27) *
+          (1 + velocity * 0.08) *
+          (flurry ? 1 + index * 0.09 : 1) *
+          rand(0.97, 1.03);
+        const bus = ac.createGain(),
+          pan = ac.createStereoPanner();
+        const center = clamp((focus.x / W) * 1.35 - 0.675, -0.68, 0.68);
+        const travel = direction.x * (0.32 + weight * 0.49);
+        bus.gain.value = flurry ? 0.65 : 0.86;
+        bus.connect(pan);
+        pan.connect(master);
+        pan.connect(room);
+        pan.pan.setValueAtTime(clamp(center - travel, -1, 1), t);
+        pan.pan.linearRampToValueAtTime(center, t + arrival);
+        pan.pan.linearRampToValueAtTime(clamp(center + travel, -1, 1), t + arrival + 0.17);
+        // Fade the oldest voice if rapid gestures would otherwise mask the next attack.
+        if (swordVoices.length >= 7) {
+          const old = swordVoices.shift();
+          old.gain.setTargetAtTime(0.0001, t, 0.008);
+        }
+        swordVoices.push(bus);
+        setTimeout(() => {
+          let i = swordVoices.indexOf(bus);
+          if (i >= 0) swordVoices.splice(i, 1);
+          bus.disconnect();
+          pan.disconnect();
+        }, 1600);
+        const duration = arrival + 0.15 + weight * 0.22;
+        sweepBand(
+          bus,
+          180 * pitch,
+          1250 * pitch,
+          100 * pitch,
+          duration,
+          arrival,
+          0.68 + weight * 0.63,
+          0.57,
+        );
+        sweepBand(
+          bus,
+          950 * pitch,
+          (4300 + velocity * 1700) * pitch,
+          630 * pitch,
+          duration * 0.83,
+          arrival,
+          0.55 + weight * 0.42,
+          1.25,
+        );
+        noise(
+          "highpass",
+          3800,
+          7600,
+          0.1 + weight * 0.11,
+          0.16 + velocity * 0.12,
+          arrival * 0.35,
+          bus,
+          0.028,
+        );
+        if (kind !== "slice") {
+          tone(
+            144 * pitch,
+            37 + pitch * 7,
+            0.18 + weight * 0.23,
+            0.12 + weight * 0.23,
+            "sine",
+            arrival,
+            bus,
+          );
+          noise("lowpass", 800, 93, 0.24 + weight * 0.13, 0.33, arrival, bus);
+        }
+        if (hitCount) {
+          const impact = 0.72 + Math.min(4, hitCount) * 0.065;
+          noise("highpass", 2600, 7900, 0.048, 0.78 * impact, arrival, bus, 0.001);
+          noise("bandpass", 1380, 225, 0.11, 0.59 * impact, arrival + 0.009, bus, 0.0015);
+          // Inharmonic steel partials. Higher modes die first, leaving a low singing edge.
+          const metalPitch = pitch * (crossed && index ? 1.24 : 1);
+          for (const [hz, amp, decay] of [
+            [651, 0.13, 0.67],
+            [1097, 0.085, 0.49],
+            [1851, 0.063, 0.37],
+            [2947, 0.05, 0.22],
+            [4721, 0.032, 0.13],
+          ]) {
+            const start = hz * metalPitch;
+            tone(
+              start * 1.012,
+              start * (flurry ? 0.975 : 0.988),
+              decay * (0.62 + weight * 0.5),
+              amp * impact,
+              "sine",
+              arrival + 0.004,
+              bus,
+            );
+          }
+          for (let i = 0; i < (heavy ? 4 : 2); i++)
+            noise(
+              "highpass",
+              1900 + i * 430,
+              6000,
+              0.023 + Math.random() * 0.036,
+              0.08 + weight * 0.08,
+              arrival + 0.054 + i * 0.035,
+              bus,
+              0.001,
+            );
+          impactSoundsUntil = now + 1450;
+        }
+      }
+      function debrisSound(speed, mass) {
+        if (!ac || now > impactSoundsUntil || now < nextImpactSound || speed < 150) return;
+        nextImpactSound = now + rand(45, 82);
+        const strength = clamp(speed / 700, 0.15, 1),
+          pitch = clamp(310 / Math.sqrt(mass + 0.1), 80, 470);
+        tone(pitch, pitch * 0.42, 0.09, 0.14 * strength, "triangle");
+        noise("bandpass", 1950, 490, 0.068, 0.23 * strength, 0, master, 0.001);
+      }
+      function shake(power, n) {
+        tremor = add(tremor, mul(n, power));
+        shakeTime = now;
+      }
+      function burst(q, count, n, magnitude = 120, dust = false) {
+        for (let i = 0; i < count; i++) {
+          if (particles.length >= 650) particles.shift();
+          let dir = n
+            ? unit(add(mul(n, rand(-1, 1)), mul(perp(n), rand(-1, 1))))
+            : rot(pt(1, 0), rand(0, TAU));
+          let life = rand(0.16, dust ? 0.82 : 0.49);
+          particles.push({
+            p: { ...q },
+            v: mul(dir, rand(0.17, 1) * magnitude),
+            life,
+            max: life,
+            r: rand(0.6, dust ? 3.5 : 2.1),
+            a: rand(0, TAU),
+            dust,
+            c: dust ? (i % 3 ? "#a7a59c" : INK) : i % 4 ? INK : ORANGE,
+          });
+        }
+      }
+      function sliceBody(b, origin, normal) {
+        let o = local(b, origin),
+          n = rot(normal, -b.angle),
+          ds = b.p.map((q) => dot(minus(q, o), n));
+        if (Math.min(...ds) > -1 || Math.max(...ds) < 1) return [];
+        let pieces = [];
+        for (let sign of [-1, 1]) {
+          let half = b.cells
+            .map((p) => clip(p, o, mul(n, sign)))
+            .filter((p) => p.length >= 3 && area(p) > 0.00001);
+          let outlines = half.length === 1 ? [clean(half[0])] : perimeters(half);
+          for (let p of outlines) {
+            if (area(p) < 1) continue;
+            let c = centroid(p),
+              pos = world(b, c),
+              part = body(p, b.mat, pos, b.angle);
+            if (!part) return [];
+            part.v = velocityAt(b, minus(pos, b.pos));
+            part.w = b.w;
+            part.blastStamp = b.blastStamp;
+            pieces.push({ part, sign });
+          }
+        }
+        if (
+          pieces.length < 2 ||
+          Math.abs(pieces.reduce((t, k) => t + k.part.A, 0) - b.A) > Math.max(2, b.A * 1e-5)
+        )
+          return [];
+        return pieces;
+      }
+      function crossings(b, o, n) {
+        let wp = b.p.map((q) => world(b, q)),
+          hits = [];
+        for (let i = 0; i < wp.length; i++) {
+          let a = wp[i],
+            c = wp[(i + 1) % wp.length],
+            d = dot(minus(a, o), n),
+            e = dot(minus(c, o), n);
+          if ((d >= 0 && e < 0) || (d < 0 && e >= 0)) hits.push(mix(a, c, d / (d - e)));
+        }
+        return hits;
+      }
+      const queuedCuts = [];
+      let bladeMode = "world";
+      function chooseBlade(mode) {
+        bladeMode = mode;
+        for (const el of document.querySelectorAll("[data-mode]"))
+          el.setAttribute("aria-pressed", String(el.dataset.mode === mode));
+      }
+      for (const el of document.querySelectorAll("[data-mode]")) {
+        const choose = () => {
+          selectTool("world");
+          chooseBlade(el.dataset.mode);
+        };
+        el.addEventListener("click", choose);
+        el.addEventListener("keydown", (e) => {
+          if (e.key === " " || e.key === "Enter") {
+            e.preventDefault();
+            choose();
+          }
+        });
+      }
+      // Both the dotted aiming guides and the actual attacks use these same lines.
+      function strikePattern(start, end, mode) {
+        const center = mix(start, end, 0.5),
+          axis = unit(minus(end, start)),
+          normal = perp(axis);
+        if (mode === "crosscut")
+          return [
+            { center, axis, delay: 0 },
+            { center, axis: normal, delay: 83 },
+          ];
+        if (mode === "flurry") {
+          const gap = clamp(dist(start, end) * 0.145, 12, Math.min(W, H) * 0.085);
+          return [-2, -1, 0, 1, 2].map((i, k) => ({
+            center: add(center, mul(normal, i * gap)),
+            axis: k % 2 ? mul(axis, -1) : axis,
+            delay: k * 51,
+          }));
+        }
+        return [{ center, axis, delay: 0 }];
+      }
+      function strikeSpan(center, axis) {
+        const mid = add(center, mul(axis, dot(minus(pt(W / 2, H / 2), center), axis)));
+        const span = Math.abs(axis.x) * W * 0.5 + Math.abs(axis.y) * H * 0.5 + 40;
+        return [minus(mid, mul(axis, span)), add(mid, mul(axis, span))];
+      }
+      function cut(start, end, big, speed, mode = big ? "world" : "slice") {
+        if (dist(start, end) < 5) return;
+        for (const [index, stroke] of strikePattern(start, end, mode).entries()) {
+          const [a, b] = big ? strikeSpan(stroke.center, stroke.axis) : [start, end];
+          const strike = { a, b, focus: stroke.center, mode, speed, index, at: now + stroke.delay };
+          if (stroke.delay) {
+            queuedCuts.push(strike);
+            if (queuedCuts.length > 24) queuedCuts.shift();
+          } else landCut(strike);
+        }
+        live = true;
+      }
+      function landCut({ a, b, focus, mode, speed, index }) {
+        const dir = unit(minus(b, a)),
+          n = perp(dir),
+          big = mode !== "slice";
+        const hitCount = severLine(a, b, mode, speed);
+        effects.push({
+          type: mode === "slice" ? "slash" : mode,
+          a,
+          b,
+          focus,
+          born: now,
+          index,
+          dur: mode === "world" ? 510 : mode === "crosscut" ? 385 : mode === "flurry" ? 260 : 170,
+          width: clamp(speed * 0.004, 2, 9),
+          seed: Math.random(),
+        });
+        if (big || hitCount) {
+          const power =
+            mode === "world" ? 15 : mode === "crosscut" ? 10 : mode === "flurry" ? 5 : 3.6;
+          freeze = Math.max(
+            freeze,
+            now + (mode === "world" ? 90 : mode === "crosscut" ? 58 : mode === "flurry" ? 23 : 42),
+          );
+          shake(power, n);
+          if ((mode === "crosscut" && index === 1) || (mode === "flurry" && index === 4)) {
+            effects.push({
+              type: "pressure",
+              p: focus,
+              born: now,
+              dur: 360,
+              r: mode === "crosscut" ? 103 : 64,
+            });
+            burst(focus, mode === "crosscut" ? 30 : 14, n, 275);
+          }
+        }
+        slashSound(mode, hitCount, speed, dir, focus, index);
+      }
+      function severLine(start, end, mode, speed) {
+        const big = mode !== "slice",
+          len = dist(start, end),
+          dir = unit(minus(end, start)),
+          n = perp(dir);
+        let hitCount = 0;
+        for (let b of bodies.slice()) {
+          if (Math.abs(dot(minus(b.pos, start), n)) > b.r) continue;
+          let hits = crossings(b, start, n);
+          if (hits.length < 2) continue;
+          if (!big) {
+            let along = hits.map((q) => dot(minus(q, start), dir));
+            if (along.some((d) => d < -2 || d > len + 2)) continue;
+          }
+          let pieces = sliceBody(b, start, n);
+          if (!pieces.length) continue;
+          let fusePart =
+            b.fuse === null ? null : pieces.reduce((a, k) => (a.part.A > k.part.A ? a : k)).part;
+          if (fusePart) fusePart.fuse = b.fuse;
+          bodies.splice(
+            bodies.indexOf(b),
+            1,
+            ...pieces.map(({ part, sign }) => {
+              let impulse = mul(
+                n,
+                sign *
+                  (mode === "flurry"
+                    ? rand(105, 175)
+                    : big
+                      ? rand(280, 430)
+                      : clamp(55 + speed * 0.09, 55, 190)),
+              );
+              if (big) part.delay = add(b.delay || pt(0, 0), impulse);
+              else part.v = add(part.v, impulse);
+              part.w += sign * rand(0.3, big ? 3 : 1.3);
+              return part;
+            }),
+          );
+          hits.sort((a, b) => dot(a, dir) - dot(b, dir));
+          for (let i = 0; i + 1 < hits.length; i += 2) {
+            let a = hits[i],
+              c = hits[i + 1];
+            for (let k = 0; k < Math.min(35, 4 + dist(a, c) * 0.16); k++)
+              burst(mix(a, c, Math.random()), 1, n, big ? 320 : 180);
+          }
+          hitCount++;
+        }
+        return hitCount;
+      }
+      function dropBomb(q) {
+        const size = clamp(Math.min(W, H) * 0.041, 20, 32),
+          p = circle(size, 48),
+          mat = printed(p, (g, rng) => {
+            g.fillStyle = "#23241f";
+            g.fillRect(-size, -size, size * 2, size * 2);
+            g.strokeStyle = "#8a8b7f";
+            g.lineWidth = 1.35;
+            g.beginPath();
+            g.arc(0, 0, size * 0.77, 3.45, 4.45);
+            g.stroke();
+            grain(g, rng, bounds(p), 650);
+          });
+        const b = spawn(p, mat, q);
+        b.fuse = 1.65;
+        b.w = rand(-1.3, 1.3);
+        live = true;
+        fuseSound();
+      }
+      function distanceToSurface(b, center) {
+        const q = local(b, center);
+        if (
+          b.cells.some((cell) =>
+            cell.every((a, i) => cross(minus(cell[(i + 1) % cell.length], a), minus(q, a)) >= 0),
+          )
+        )
+          return 0;
+        let closest = Infinity;
+        for (let i = 0; i < b.p.length; i++) {
+          const a = b.p[i],
+            edge = minus(b.p[(i + 1) % b.p.length], a);
+          const t = clamp(dot(minus(q, a), edge) / dot(edge, edge), 0, 1);
+          closest = Math.min(closest, dist(q, add(a, mul(edge, t))));
+        }
+        return closest;
+      }
+      function explode(bomb) {
+        let center = { ...bomb.pos };
+        bodies.splice(bodies.indexOf(bomb), 1);
+        let radius = clamp(Math.min(W, H) * 0.41, 185, 390);
+        for (let b of bodies.slice()) {
+          let d = dist(b.pos, center);
+          if (d - b.r > radius) continue;
+          const distance = distanceToSurface(b, center);
+          if (distance >= radius) continue;
+          const strength = 1 - distance / radius;
+          const cuts =
+            b.A > 170 && strength > 0.08 && b.fuse === null
+              ? Math.min(9, Math.ceil(b.A / 1300), Math.ceil(strength * 8) + 1)
+              : 0;
+          const pile = fracturePile(b, cuts);
+          for (let k of pile) {
+            if (!k.im) {
+              k.im = 1 / k.mass;
+              k.ii = k.freeInertia;
+            }
+            let delta = minus(k.pos, center),
+              n = length(delta) > 1 ? unit(delta) : rot(pt(1, 0), rand(0, TAU));
+            k.v = add(
+              k.v,
+              add(mul(n, (170 + strength * 670) * rand(0.76, 1.16)), pt(0, -95 * strength)),
+            );
+            k.w += rand(-7, 7) * strength;
+            if (k.fuse !== null) k.fuse = Math.min(k.fuse, 0.17);
+          }
+        }
+        burst(center, 100, null, 530, true);
+        for (let i = 0; i < 25; i++)
+          burst(add(center, rot(pt(rand(4, 40), 0), rand(0, TAU))), 1, null, 430);
+        effects.push({ type: "blast", p: center, born: now, dur: 460, r: radius });
+        shake(17, unit(pt(rand(-0.75, 0.75), 1)));
+        freeze = now + 68;
+        impactSoundsUntil = now + 1700;
+        tone(150, 28, 0.59, 0.84);
+        noise("lowpass", 950, 65, 0.72, 0.53, 0.051);
+        for (let i = 0; i < 6; i++)
+          noise(
+            "bandpass",
+            rand(1400, 3800),
+            rand(380, 1000),
+            rand(0.04, 0.12),
+            0.18,
+            0.07 + i * 0.042,
+          );
+        noise("lowpass", 3200, 100, 0.51, 0.68);
+        noise("highpass", 2900, 900, 0.075, 0.49);
+      }
+      let resetPreset = "city",
+        nuclearEvent = null,
+        blastSerial = 0;
+      const chargeDuration = 1450,
+        shockDuration = 680,
+        aftermathDuration = 3000;
+      const nuclearButton = document.querySelector("#nuke");
+      function cancelNuke() {
+        if (!nuclearEvent) return;
+        const voice = nuclearEvent.voice;
+        if (voice) {
+          voice.gain.setTargetAtTime(0.0001, ac.currentTime, 0.01);
+          setTimeout(() => voice.disconnect(), 100);
+        }
+        nuclearEvent = null;
+        nuclearButton.removeAttribute("aria-disabled");
+      }
+      function startNuke() {
+        if (nuclearEvent) return;
+        if (clearing) finishClear();
+        queuedCuts.length = 0;
+        const rng = seeded(++blastSerial * 509 + 13);
+        nuclearEvent = {
+          id: blastSerial,
+          started: performance.now(),
+          fired: null,
+          beat: -1,
+          extra: Math.max(0, Math.min(64, 90 - bodies.length)),
+          flecks: Array.from({ length: 72 }, () => ({
+            a: rng() * TAU,
+            s: 0.28 + rng() * 0.72,
+            z: rng(),
+          })),
+          voice: ac ? ac.createGain() : null,
+        };
+        if (nuclearEvent.voice) nuclearEvent.voice.connect(master);
+        nuclearButton.setAttribute("aria-disabled", "true");
+      }
+      function blastCenter() {
+        return pt(W * 0.5, H * 0.65);
+      }
+      function waveRadius(t) {
+        const maxRadius = Math.hypot(W * 0.5, H * 0.65) + Math.max(16, Math.min(W, H) * 0.05);
+        return maxRadius * (1 - (1 - clamp(t / shockDuration, 0, 1)) ** 2);
+      }
+      function nuclearReport(event) {
+        const out = event.voice;
+        if (!out) return;
+        noise("highpass", 2300, 7500, 0.081, 0.91, 0, out, 0.001);
+        tone(157, 34, 0.79, 0.97, "sine", 0.008, out);
+        tone(85, 28, 1.6, 0.53, "triangle", 0.045, out);
+        noise("lowpass", 4100, 96, 0.9, 0.94, 0.008, out);
+        noise("bandpass", 880, 98, 1.0, 0.61, 0.15, out, 0.08);
+        for (let k = 0; k < 4; k++) {
+          const echo = ac.createStereoPanner();
+          echo.pan.value = k % 2 ? 0.69 : -0.69;
+          echo.connect(out);
+          noise(
+            "lowpass",
+            1100 - k * 160,
+            82,
+            0.73,
+            0.5 / (1 + k * 0.3),
+            0.24 + k * 0.26,
+            echo,
+            0.036,
+          );
+          tone(81 - k * 7, 33, 0.49, 0.2 / (1 + k * 0.3), "sine", 0.26 + k * 0.26, echo);
+        }
+      }
+      function fracturePile(b, cuts, spare = Infinity) {
+        const pile = [b];
+        for (let i = 0; i < cuts; i++) {
+          pile.sort((a, c) => c.A - a.A);
+          const largest = pile[0];
+          if (largest.A < 145 || pile.length - 1 >= spare) break;
+          const n = rot(pt(1, 0), rand(0, TAU)),
+            o = add(largest.pos, mul(n, rand(-0.16, 0.16) * largest.r));
+          const split = sliceBody(largest, o, n);
+          if (split.length && pile.length + split.length - 2 <= spare)
+            pile.splice(0, 1, ...split.map((k) => k.part));
+        }
+        if (pile.length > 1) bodies.splice(bodies.indexOf(b), 1, ...pile);
+        return pile;
+      }
+      function nuclearImpulse(event, b, center) {
+        const cuts = Math.min(7, Math.ceil(b.A / 1600), event.extra);
+        const pile = fracturePile(b, cuts, event.extra);
+        event.extra -= pile.length - 1;
+        const span = Math.hypot(W, H),
+          scale = clamp(Math.min(W, H) / 650, 0.56, 1.35);
+        for (const part of pile) {
+          part.blastStamp = event.id;
+          part.fuse = null;
+          part.delay = null;
+          if (!part.im) {
+            part.im = 1 / part.mass;
+            part.ii = part.freeInertia;
+          }
+          const delta = minus(part.pos, center),
+            distance = length(delta);
+          const n = distance > 1 ? mul(delta, 1 / distance) : pt(rand(-0.4, 0.4), -1);
+          const impulse =
+            scale * (650 + 370 * (1 - clamp(distance / span, 0, 1))) * rand(0.84, 1.12);
+          part.v = add(mul(part.v, 0.32), add(mul(n, impulse), pt(0, -scale * rand(240, 410))));
+          part.w += rand(-10, 10);
+        }
+        burst(b.pos, Math.min(14, 4 + pile.length), null, 370, true);
+      }
+      function updateNuke() {
+        const e = nuclearEvent;
+        if (!e) return;
+        const age = now - e.started,
+          center = blastCenter();
+        if (e.fired === null) {
+          const beat = age < 630 ? 0 : age < 1060 ? 1 : 2;
+          if (beat !== e.beat && age < chargeDuration) {
+            e.beat = beat;
+            if (e.voice) {
+              const f = [245, 332, 460][beat];
+              tone(f, f * 1.45, 0.25, 0.093, "triangle", 0, e.voice);
+              noise("bandpass", 260, 2900, 0.26, 0.19, 0, e.voice, 0.095);
+            }
+          }
+          if (age < chargeDuration) return;
+          e.fired = now;
+          live = true;
+          freeze = now + 88;
+          impactSoundsUntil = now + 2400;
+          shake(27, unit(pt(0.34, -1)));
+          burst(center, 110, null, 640);
+          nuclearReport(e);
+        }
+        const t = now - e.fired,
+          r = waveRadius(t);
+        if (!e.waveFinished)
+          for (const b of bodies.slice()) {
+            if (b.blastStamp === e.id) continue;
+            if (
+              t < shockDuration &&
+              (dist(b.pos, center) - b.r > r || distanceToSurface(b, center) > r)
+            )
+              continue;
+            nuclearImpulse(e, b, center);
+          }
+        if (t >= shockDuration) e.waveFinished = true;
+        if (t >= aftermathDuration) cancelNuke();
+      }
+      function cloudPath(g, segments) {
+        g.beginPath();
+        g.moveTo(...segments[0]);
+        for (const curve of segments.slice(1)) g.bezierCurveTo(...curve);
+        g.closePath();
+      }
+      function nuclearCloud(e, t, center) {
+        const lift = 1 - Math.exp(-t / 370),
+          unitSize = Math.min(W * 0.79, H * 0.73) / 260;
+        const size = unitSize * (0.26 + 0.74 * lift),
+          rise = 44 + 68 * lift + t * 0.011;
+        const fade = clamp((aftermathDuration - t) / 950, 0, 1);
+        ctx.save();
+        ctx.translate(center.x, center.y);
+        ctx.scale(size, size);
+        ctx.globalAlpha = fade * Math.min(1, t / 110);
+        ctx.lineJoin = "round";
+        const stem = [
+          [-36, 0],
+          [-18, -6, -6, -13, -13, -27],
+          [-23, -39, -8, -42, -12, -55],
+          [-21, -72, -34, -82, -35, -rise],
+          [0, -rise - 13, 33, -rise - 4, 33, -rise],
+          [25, -82, 10, -66, 18, -53],
+          [28, -42, 10, -31, 15, -22],
+          [17, -11, 26, -5, 40, 0],
+          [24, 6, -17, 6, -36, 0],
+        ];
+        cloudPath(ctx, stem);
+        ctx.fillStyle = "#bd6240";
+        ctx.fill();
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.save();
+        ctx.clip();
+        for (let i = -7; i <= 7; i++) {
+          ctx.beginPath();
+          ctx.moveTo(i * 7, 5);
+          ctx.bezierCurveTo(i * 1.4, -22, i * 3.1 - 6, -49, i * 5.5, -rise);
+          ctx.strokeStyle = i % 3 ? INK : PAPER;
+          ctx.lineWidth = i % 3 ? 0.8 : 2.1;
+          ctx.stroke();
+        }
+        ctx.restore();
+        // Draw one continuous silhouette so the rolling crown has a single ink perimeter.
+        ctx.save();
+        ctx.translate(0, -rise);
+        ctx.scale(1 + 0.001 * Math.min(t / 8, 100), 1);
+        const crown = [
+          [-103, 1],
+          [-116, -8, -109, -23, -97, -23],
+          [-105, -38, -87, -48, -71, -43],
+          [-74, -58, -52, -64, -40, -55],
+          [-33, -72, -8, -75, 6, -62],
+          [28, -76, 51, -66, 53, -55],
+          [72, -62, 91, -51, 89, -36],
+          [109, -39, 119, -24, 112, -12],
+          [131, -1, 112, 15, 96, 12],
+          [86, 25, 66, 24, 54, 18],
+          [40, 30, 18, 28, 4, 20],
+          [-10, 29, -34, 28, -44, 18],
+          [-62, 25, -82, 18, -87, 12],
+          [-96, 15, -106, 10, -103, 1],
+        ];
+        cloudPath(ctx, crown);
+        ctx.fillStyle = "#d8d2bf";
+        ctx.fill();
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+        ctx.save();
+        ctx.clip();
+        cloudPath(ctx, [
+          [-122, -20],
+          [-92, -5, -79, -6, -72, -16],
+          [-60, 2, -39, -6, -35, -20],
+          [-17, -4, 0, -6, 4, -18],
+          [21, -3, 45, -9, 48, -21],
+          [67, -7, 90, -12, 95, -22],
+          [111, -18, 124, -32, 132, -39],
+          [145, 33, 80, 47, -123, 38],
+          [-130, 19, -125, 1, -122, -20],
+        ]);
+        ctx.fillStyle = "#514a3c";
+        ctx.fill();
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        for (const k of e.flecks) {
+          const x = Math.cos(k.a) * 107 * k.s,
+            y = Math.sin(k.a) * 49 * k.s - 11;
+          rule(ctx, x, y, x + 1 + k.z * 3, y - 1.8, k.z > 0.55 ? "#a59373" : INK, 0.55);
+        }
+        ctx.restore();
+        for (const [x, y, r, a, b] of [
+          [-71, -29, 13, 3.4, 5.9],
+          [-39, -41, 15, 3, 5.3],
+          [1, -51, 13, 3.4, 5.4],
+          [50, -43, 14, 3.5, 5.6],
+          [86, -23, 11, 4.1, 6.2],
+        ]) {
+          ctx.beginPath();
+          ctx.arc(x, y, r, a, b);
+          ctx.strokeStyle = INK;
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+        ctx.restore();
+        for (let j = 0; j < 2; j++) {
+          ctx.beginPath();
+          ctx.ellipse(
+            0,
+            -rise + (j ? 30 : -29),
+            68 + j * 14 + lift * 20,
+            5 + j * 2,
+            -0.033,
+            0.09,
+            Math.PI * 1.96,
+          );
+          ctx.strokeStyle = j ? INK : "#978c75";
+          ctx.lineWidth = j ? 1.2 : 0.85;
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+      function drawNuke() {
+        const e = nuclearEvent;
+        if (!e) return;
+        const center = blastCenter(),
+          span = Math.min(W, H);
+        ctx.save();
+        if (e.fired === null) {
+          const t = clamp((now - e.started) / chargeDuration, 0, 1);
+          ctx.fillStyle = "rgba(28,25,18," + 0.14 * t + ")";
+          ctx.fillRect(-30, -30, W + 60, H + 60);
+          const radius = 7 + (1 - t) ** 1.4 * span * 0.26;
+          ctx.strokeStyle = INK;
+          ctx.lineWidth = 1.15;
+          for (let k = 0; k < 4; k++) {
+            let a = (k * Math.PI) / 2 + t * 1.2;
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, radius, a + 0.12, a + 1.02);
+            ctx.stroke();
+          }
+          for (const d of e.flecks.slice(0, 28)) {
+            const n = pt(Math.cos(d.a), Math.sin(d.a)),
+              r = radius * (0.8 + d.s) + (1 - t) * d.z * span * 0.28;
+            bladeTrail(add(center, mul(n, r + 7 + t * 13)), add(center, mul(n, r)), 0.6 + t, INK);
+          }
+          disc(ctx, center.x, center.y, 4 + t * 8, ORANGE);
+        } else {
+          const t = now - e.fired,
+            r = waveRadius(t);
+          if (t > 38) {
+            nuclearCloud(e, t, center);
+            // Ground dust overtakes the column, then rolls apart into individual puffs.
+            const spread = 1 - Math.exp(-t / 620),
+              baseScale = span / 620;
+            ctx.save();
+            ctx.globalAlpha = clamp(t / 155, 0, 1) * clamp((2060 - t) / 830, 0, 1);
+            for (let i = -4; i <= 4; i++) {
+              const seed = e.flecks[i + 4],
+                x = center.x + i * span * 0.053 * spread;
+              const size = baseScale * (0.62 + seed.s * 0.56) * (1 - Math.exp(-t / 180));
+              ctx.save();
+              ctx.translate(x, center.y + (seed.z - 0.5) * 7 * baseScale - t * 0.004);
+              ctx.scale(size * (1 + spread * 0.5), size);
+              cloudPath(ctx, [
+                [-27, 1],
+                [-34, -3, -27, -11, -18, -10],
+                [-20, -19, -8, -23, 0, -16],
+                [5, -23, 18, -19, 18, -12],
+                [29, -15, 33, -3, 25, 1],
+                [11, 6, -8, 6, -27, 1],
+              ]);
+              ctx.fillStyle = i % 2 ? "#c6bba3" : "#dcd4c3";
+              ctx.fill();
+              ctx.strokeStyle = "#4a4338";
+              ctx.lineWidth = 1;
+              ctx.stroke();
+              ctx.beginPath();
+              ctx.arc(-6, -9, 6, 3.3, 5.15);
+              ctx.stroke();
+              ctx.restore();
+            }
+            ctx.restore();
+          }
+          if (t < 290) {
+            const u = t / 290,
+              fireRadius = span * 0.22 * (1 - Math.exp(-u * 6));
+            ctx.save();
+            ctx.globalAlpha = (1 - u) ** 1.5;
+            for (const [scale, color] of [
+              [1, INK],
+              [0.94, ORANGE],
+              [0.72, "#fff5cf"],
+            ]) {
+              ctx.beginPath();
+              for (let i = 0; i < 72; i++) {
+                const a = (i * TAU) / 72,
+                  rr = fireRadius * scale * (i % 2 ? 0.73 : 0.84 + 0.34 * e.flecks[i].s);
+                const x = center.x + Math.cos(a) * rr,
+                  y = center.y + Math.sin(a) * rr * 0.76;
+                if (i) ctx.lineTo(x, y);
+                else ctx.moveTo(x, y);
+              }
+              ctx.closePath();
+              ctx.fillStyle = color;
+              ctx.fill();
+            }
+            ctx.restore();
+          }
+          if (t < shockDuration) {
+            const u = t / shockDuration;
+            ctx.globalAlpha = (1 - u) ** 0.65;
+            for (const [f, w, c] of [
+              [1, 2.3, INK],
+              [0.979, 7.5, PAPER],
+              [0.955, 2, ORANGE],
+              [0.91, 1, INK],
+            ]) {
+              ctx.beginPath();
+              ctx.arc(center.x, center.y, Math.max(1, r * f), 0, TAU);
+              ctx.strokeStyle = c;
+              ctx.lineWidth = w;
+              ctx.stroke();
+            }
+            for (const d of e.flecks) {
+              const axis = rot(pt(1, 0), d.a),
+                p = add(center, mul(axis, r * (0.74 + d.z * 0.28)));
+              bladeTrail(
+                p,
+                add(p, mul(axis, (9 + 36 * d.s) * (1 - u))),
+                1.6 * (1 - u) + 0.25,
+                d.z > 0.7 ? ORANGE : INK,
+              );
+            }
+          }
+          if (t < 165) {
+            ctx.globalAlpha = 0.91 * (1 - t / 165) ** 2;
+            ctx.fillStyle = "#fffbed";
+            ctx.fillRect(-40, -40, W + 80, H + 80);
+          }
+          if (t > 540 && t < aftermathDuration) {
+            ctx.globalAlpha =
+              clamp((t - 540) / 400, 0, 1) * clamp((aftermathDuration - t) / 700, 0, 1) * 0.72;
+            for (const d of e.flecks) {
+              const p = pt(
+                center.x + Math.cos(d.a) * (d.s * W * 0.66 + (t - 540) * 0.012),
+                center.y -
+                  span * 0.42 * d.z +
+                  (t - 540) * (0.021 + 0.039 * d.s) +
+                  Math.sin(t * 0.002 + d.a) * 5,
+              );
+              ctx.fillStyle = d.z > 0.8 ? ORANGE : INK;
+              ctx.fillRect(p.x, p.y, 0.9 + d.s * 1.8, 0.9 + d.z);
+            }
+          }
+        }
+        ctx.restore();
+      }
+      function clearStage() {
+        cancelNuke();
+        queuedCuts.length = 0;
+        impactSoundsUntil = 0;
+        markScene("blank");
+        epoch++;
+        gesture = null;
+        dragHover = false;
+        const start = performance.now();
+        clearing = { start };
+        particles.length = 0;
+        effects.length = 0;
+        freeze = 0;
+        tremor = pt(0, 0);
+        noise("bandpass", 1700, 140, 0.34, 0.23);
+      }
+      function finishClear() {
+        clearing = null;
+        bodies.length = 0;
+        live = false;
+      }
+
+      function simplify(p, tol) {
+        if (p.length < 3) return p;
+        let keep = new Set([0, p.length - 1]),
+          stack = [[0, p.length - 1]];
+        while (stack.length) {
+          let [i, j] = stack.pop(),
+            a = p[i],
+            d = minus(p[j], a),
+            dd = dot(d, d),
+            best = tol,
+            index = 0;
+          for (let k = i + 1; k < j; k++) {
+            let t = dd ? clamp(dot(minus(p[k], a), d) / dd, 0, 1) : 0,
+              delta = dist(p[k], add(a, mul(d, t)));
+            if (delta > best) {
+              best = delta;
+              index = k;
+            }
+          }
+          if (index) {
+            keep.add(index);
+            stack.push([i, index], [index, j]);
+          }
+        }
+        return [...keep].sort((a, b) => a - b).map((i) => p[i]);
+      }
+      function strokePath(g, p) {
+        g.beginPath();
+        g.moveTo(p[0].x, p[0].y);
+        for (let i = 1; i < p.length; i++) g.lineTo(p[i].x, p[i].y);
+      }
+      function closedStroke(p) {
+        if (p.length < 4) return false;
+        let b = bounds(p);
+        return (
+          dist(p[0], p.at(-1)) < clamp(Math.hypot(b.r - b.l, b.b - b.t) * 0.27, 18, 80) &&
+          Math.abs(area(p)) > 110
+        );
+      }
+      function makeDrawing(samples) {
+        let p = simplify(samples, 1.4);
+        if (p.length < 2 || Math.max(...p.map((q) => dist(q, p[0]))) < 3) {
+          let poly = circle(8, 24);
+          spawn(poly, materialForDrawing(poly), p[0]);
+          return;
+        }
+        // Rasterize the ink footprint once, then trace its external boundary. This also
+        // resolves overlaps in tight turns and self-crossing strokes into solid islands.
+        let bb = bounds(p),
+          s = Math.min(1, 720 / Math.max(bb.r - bb.l, bb.b - bb.t)),
+          ox = bb.l - 11,
+          oy = bb.t - 11;
+        let c = document.createElement("canvas");
+        c.width = Math.ceil((bb.r - bb.l + 22) * s) + 2;
+        c.height = Math.ceil((bb.b - bb.t + 22) * s) + 2;
+        let g = c.getContext("2d", { willReadFrequently: true });
+        g.scale(s, s);
+        g.translate(-ox, -oy);
+        strokePath(g, p);
+        if (closedStroke(p)) {
+          g.closePath();
+          g.fill();
+          g.lineWidth = 2;
+        } else g.lineWidth = 12;
+        g.lineCap = "round";
+        g.lineJoin = "round";
+        g.stroke();
+        let { width: w, height: h } = c,
+          data = g.getImageData(0, 0, w, h).data,
+          edges = new Map();
+        const on = (x, y) => x >= 0 && x < w && y >= 0 && y < h && data[(x + y * w) * 4 + 3] > 100;
+        const id = (x, y) => x + y * (w + 1);
+        const edge = (a, b) => {
+          if (!edges.has(a)) edges.set(a, []);
+          edges.get(a).push(b);
+        };
+        for (let y = 0; y < h; y++)
+          for (let x = 0; x < w; x++)
+            if (on(x, y)) {
+              if (!on(x, y - 1)) edge(id(x, y), id(x + 1, y));
+              if (!on(x + 1, y)) edge(id(x + 1, y), id(x + 1, y + 1));
+              if (!on(x, y + 1)) edge(id(x + 1, y + 1), id(x, y + 1));
+              if (!on(x - 1, y)) edge(id(x, y + 1), id(x, y));
+            }
+        while (edges.size) {
+          let start = edges.keys().next().value,
+            key = start,
+            path = [];
+          do {
+            path.push(pt(ox + (key % (w + 1)) / s, oy + Math.floor(key / (w + 1)) / s));
+            let list = edges.get(key);
+            if (!list) break;
+            let next = list.pop();
+            if (!list.length) edges.delete(key);
+            key = next;
+          } while (key !== start);
+          if (area(path) < 6) continue;
+          path.push(path[0]);
+          let poly = clean(simplify(path, 1.55 / s));
+          if (poly.length < 3) continue;
+          spawn(poly, materialForDrawing(poly), centroid(poly));
+        }
+      }
+      const picker = document.querySelector("#picker");
+      async function importFile(file, pos, version) {
+        if (!/^image\/(png|jpeg)$/i.test(file.type) && !/\.(png|jpe?g)$/i.test(file.name)) return;
+        let url = URL.createObjectURL(file),
+          im = new Image();
+        try {
+          im.src = url;
+          await im.decode();
+          if (epoch !== version) return;
+          let s = Math.min(
+              1,
+              Math.min(W * 0.42, 320) / im.naturalWidth,
+              Math.min(H * 0.38, 270) / im.naturalHeight,
+            ),
+            w = Math.max(1, im.naturalWidth * s),
+            h = Math.max(1, im.naturalHeight * s);
+          let p = points([
+            [-w / 2, -h / 2],
+            [w / 2, -h / 2],
+            [w / 2, h / 2],
+            [-w / 2, h / 2],
+          ]);
+          let x = clamp(pos.x, w / 2 + 2, W - w / 2 - 2),
+            y = clamp(pos.y, h / 2 + 2, H - h / 2 - 2);
+          let b = spawn(p, { image: im, l: -w / 2, t: -h / 2, w, h }, pt(x, y));
+          if (b) {
+            live = true;
+            tone(390, 240, 0.06, 0.07, "triangle");
+          }
+        } catch {
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      }
+      function importFiles(files, pos) {
+        if (clearing) finishClear();
+        const version = epoch;
+        [...files].forEach((f, i) => importFile(f, add(pos, pt(i * 12, i * 9)), version));
+      }
+      picker.addEventListener("change", () => {
+        importFiles(picker.files, pt(W / 2, H * 0.27));
+        picker.value = "";
+      });
+      function selectTool(t) {
+        wakeAudio();
+        gesture = null;
+        if (t === "reset") {
+          loadScene(resetPreset);
+          tone(350, 230, 0.09, 0.06, "triangle");
+          return;
+        }
+        if (t === "nuke") {
+          startNuke();
+          return;
+        }
+        if (t === "clear") {
+          clearStage();
+          return;
+        }
+        tool = t;
+        document.querySelector("#bladeModes").hidden = t !== "world";
+        for (const el of document.querySelectorAll(".tool[aria-pressed]")) {
+          let active = el.dataset.tool === t;
+          el.classList.toggle("active", active);
+          el.setAttribute("aria-pressed", String(active));
+        }
+        canvas.style.cursor = t === "bomb" ? "cell" : t === "import" ? "copy" : "crosshair";
+        if (t === "import") picker.click();
+      }
+      for (const el of document.querySelectorAll(".tool")) {
+        el.addEventListener("click", () => selectTool(el.dataset.tool));
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            selectTool(el.dataset.tool);
+          }
+        });
+      }
+      for (const name of ["dragenter", "dragover", "dragleave", "drop"])
+        window.addEventListener(name, (e) => {
+          e.preventDefault();
+          if (name === "dragleave") dragHover = false;
+          else if (name === "drop") {
+            dragHover = false;
+            wakeAudio();
+            importFiles(e.dataTransfer.files, pt(e.clientX, e.clientY));
+          } else {
+            dragHover = true;
+            e.dataTransfer.dropEffect = "copy";
+          }
+        });
+      function eventPos(e) {
+        const r = canvas.getBoundingClientRect();
+        return pt(e.clientX - r.left, e.clientY - r.top);
+      }
+      canvas.addEventListener("pointerdown", (e) => {
+        if (gesture || e.button !== 0) return;
+        e.preventDefault();
+        wakeAudio();
+        if (clearing) finishClear();
+        let p = eventPos(e);
+        if (tool === "import") {
+          picker.click();
+          return;
+        }
+        if (tool === "bomb") {
+          dropBomb(p);
+          return;
+        }
+        if (tool === "world") {
+          noise("bandpass", 1600, 5000, 0.13, 0.13, 0, master, 0.035);
+          tone(1384, 1362, 0.185, 0.037, "sine");
+        }
+        canvas.setPointerCapture(e.pointerId);
+        gesture = { id: e.pointerId, p: [p], start: p, last: p, speed: 0, time: e.timeStamp, tool };
+      });
+      canvas.addEventListener("pointermove", (e) => {
+        if (!gesture || gesture.id !== e.pointerId) return;
+        let events = e.getCoalescedEvents?.() || [];
+        for (let ev of events.length ? events : [e]) {
+          let p = eventPos(ev),
+            d = dist(gesture.last, p);
+          if (d < 1) continue;
+          gesture.speed =
+            0.6 * gesture.speed + (0.4 * d * 1000) / Math.max(2, ev.timeStamp - gesture.time);
+          gesture.time = ev.timeStamp;
+          gesture.last = p;
+          if (gesture.tool === "draw" && gesture.p.length < 8000) gesture.p.push(p);
+        }
+      });
+      canvas.addEventListener("pointerup", (e) => {
+        if (!gesture || gesture.id !== e.pointerId) return;
+        let g = gesture;
+        gesture = null;
+        let end = eventPos(e);
+        if (g.tool === "draw") {
+          g.p.push(end);
+          makeDrawing(g.p);
+          live = true;
+          tone(170, 62, 0.085, 0.105, "triangle");
+        } else
+          cut(g.start, end, g.tool === "world", g.speed, g.tool === "world" ? bladeMode : "slice");
+      });
+      canvas.addEventListener("lostpointercapture", () => {
+        gesture = null;
+      });
+      canvas.addEventListener("pointercancel", () => {
+        gesture = null;
+      });
+      window.addEventListener("blur", () => {
+        gesture = null;
+        dragHover = false;
+      });
+      window.addEventListener("keydown", (e) => {
+        if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+        let keys = ["draw", "import", "slice", "world", "bomb"];
+        if (+e.key >= 1 && +e.key <= 5) selectTool(keys[+e.key - 1]);
+        else if (e.key === "6" || e.key === "7") {
+          selectTool("world");
+          chooseBlade(e.key === "6" ? "crosscut" : "flurry");
+        } else if (e.key.toLowerCase() === "r") selectTool("reset");
+        else if (e.key.toLowerCase() === "n") selectTool("nuke");
+        else if (e.key === "Escape") gesture = null;
+      });
+      let background = document.createElement("canvas");
+      function makePaper() {
+        background.width = canvas.width;
+        background.height = canvas.height;
+        let g = background.getContext("2d");
+        g.scale(dpr, dpr);
+        g.fillStyle = PAPER;
+        g.fillRect(0, 0, W, H);
+        const step = W < 580 ? 24 : 32,
+          ox = (Math.round(W * 0.5) % step) + 0.5,
+          oy = (Math.round((H - 72) * 0.5) % step) + 0.5;
+        g.strokeStyle = "#E2E0D8";
+        g.lineWidth = 0.65;
+        g.beginPath();
+        for (let x = ox - step; x < W; x += step) {
+          g.moveTo(x, 0);
+          g.lineTo(x, H);
+        }
+        for (let y = oy - step; y < H; y += step) {
+          g.moveTo(0, y);
+          g.lineTo(W, y);
+        }
+        g.stroke();
+        // Registration marks are etched into the sheet, so they stay still on impact.
+        g.strokeStyle = "#c2c1b8";
+        g.lineWidth = 0.8;
+        g.beginPath();
+        for (let x = ox; x < W; x += step * 4)
+          for (let y = oy; y < H; y += step * 4) {
+            g.moveTo(x - 2.5, y);
+            g.lineTo(x + 2.5, y);
+            g.moveTo(x, y - 2.5);
+            g.lineTo(x, y + 2.5);
+          }
+        g.stroke();
+        const m = W < 520 ? 17.5 : 26.5,
+          l = 11;
+        g.strokeStyle = "#72746c";
+        g.lineWidth = 1;
+        g.beginPath();
+        for (let [x, y, dx, dy] of [
+          [m, m, 1, 1],
+          [W - m, m, -1, 1],
+          [m, H - m, 1, -1],
+          [W - m, H - m, -1, -1],
+        ]) {
+          g.moveTo(x - l * 0.5 * dx, y);
+          g.lineTo(x + l * dx, y);
+          g.moveTo(x, y - l * 0.5 * dy);
+          g.lineTo(x, y + l * dy);
+        }
+        g.stroke();
+      }
+      function resize() {
+        let prevW = W,
+          prevH = H,
+          Wnew = canvas.clientWidth,
+          Hnew = canvas.clientHeight;
+        W = Wnew;
+        H = Hnew;
+        dpr = Math.min(devicePixelRatio || 1, 2);
+        canvas.width = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
+        makePaper();
+        if (!prevW || (!live && !clearing && bodies.length)) {
+          bodies = [];
+          starter();
+        } else if (prevW && prevH)
+          for (let b of bodies) b.pos = pt((b.pos.x * W) / prevW, (b.pos.y * H) / prevH);
+      }
+      function drawBody(b) {
+        let g = ctx;
+        g.save();
+        g.translate(b.pos.x, b.pos.y);
+        g.rotate(b.angle);
+        g.translate(-b.c.x, -b.c.y);
+        polygon(g, b.p);
+        g.fillStyle = PAPER;
+        g.shadowColor = "rgba(25,25,18,.2)";
+        g.shadowBlur = 3.2 * dpr;
+        g.shadowOffsetX = 2.3 * dpr;
+        g.shadowOffsetY = 4 * dpr;
+        g.fill();
+        g.shadowColor = "transparent";
+        g.save();
+        g.clip();
+        let m = b.mat;
+        g.drawImage(m.image, m.l, m.t, m.w, m.h);
+        g.restore();
+        g.strokeStyle = INK;
+        g.lineWidth = 1.5;
+        g.lineJoin = "round";
+        g.stroke();
+        if (b.fuse !== null) {
+          g.save();
+          polygon(g, b.p);
+          g.clip();
+          g.strokeStyle = ORANGE;
+          g.lineWidth = 2.7;
+          g.beginPath();
+          g.arc(
+            b.c.x,
+            b.c.y,
+            b.r * (0.26 + 0.42 * clamp(b.fuse / 1.65, 0, 1)),
+            -Math.PI / 2,
+            -Math.PI / 2 + TAU * clamp(b.fuse / 1.65, 0, 1),
+          );
+          g.stroke();
+          g.restore();
+        }
+        g.restore();
+      }
+      function line(g, a, b, color, width = 1) {
+        g.beginPath();
+        g.moveTo(a.x, a.y);
+        g.lineTo(b.x, b.y);
+        g.strokeStyle = color;
+        g.lineWidth = width;
+        g.stroke();
+      }
+      function bladeTrail(a, b, width, color) {
+        let n = perp(unit(minus(b, a))),
+          m = mix(a, b, 0.65);
+        polygon(ctx, [a, add(m, mul(n, width * 0.5)), b, minus(m, mul(n, width * 0.5))]);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+      function drawGesture() {
+        if (!gesture) return;
+        const g = gesture;
+        if (g.tool === "draw") {
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          strokePath(ctx, g.p);
+          if (closedStroke(g.p)) {
+            ctx.closePath();
+            ctx.fillStyle = "rgba(17,17,17,.08)";
+            ctx.fill();
+            ctx.lineWidth = 1.5;
+          } else ctx.lineWidth = 10;
+          ctx.strokeStyle = INK;
+          ctx.stroke();
+        } else {
+          let a = g.start,
+            b = g.last,
+            d = unit(minus(b, a));
+          if (g.tool === "world" && dist(a, b) > 2) {
+            ctx.setLineDash([7, 7]);
+            const pattern = strikePattern(a, b, bladeMode);
+            for (const stroke of pattern) {
+              const [from, to] = strikeSpan(stroke.center, stroke.axis);
+              line(ctx, from, to, stroke.delay ? "#a49a8d" : "#646761", 1);
+            }
+            ctx.setLineDash([]);
+            if (bladeMode === "crosscut") {
+              const c = pattern[0].center;
+              ctx.beginPath();
+              ctx.arc(c.x, c.y, 8, 0, TAU);
+              ctx.strokeStyle = ORANGE;
+              ctx.stroke();
+            }
+          }
+          bladeTrail(a, b, clamp(2 + g.speed * 0.003, 2, 8), INK);
+          ctx.beginPath();
+          ctx.arc(a.x, a.y, 3, 0, TAU);
+          ctx.fillStyle = INK;
+          ctx.fill();
+        }
+      }
+      function drawSwordWake(f, t) {
+        const axis = unit(minus(f.b, f.a)),
+          n = perp(axis),
+          worldCut = f.type === "world";
+        const energy = worldCut ? 1 : f.type === "crosscut" ? 0.73 : 0.4;
+        const fade = (1 - t) ** 2,
+          span = dist(f.a, f.b);
+        const front = mix(f.a, f.b, Math.min(1, t * (worldCut ? 5 : 6)));
+        // The sheet slips at the seam during hit-stop, carrying its actual ink and grid with it.
+        if (worldCut && t < 0.174) {
+          ctx.save();
+          const thickness = 9 + 10 * (1 - t / 0.174);
+          polygon(ctx, [f.a, f.b, add(f.b, mul(n, thickness)), add(f.a, mul(n, thickness))]);
+          ctx.clip();
+          ctx.drawImage(canvas, axis.x * 11, axis.y * 11, W, H);
+          ctx.restore();
+          ctx.save();
+          ctx.globalCompositeOperation = "difference";
+          ctx.fillStyle = "#fff";
+          ctx.fillRect(-24, -24, W + 48, H + 48);
+          ctx.restore();
+        }
+        const light = worldCut && t < 0.174;
+        line(ctx, f.a, f.b, light ? PAPER : INK, Math.max(0.6, (3 + energy * 4) * fade));
+        for (const side of [-1, 1]) {
+          const offset = mul(n, side * (3 + energy * 2) * fade);
+          line(
+            ctx,
+            add(f.a, offset),
+            add(f.b, offset),
+            side < 0 ? ORANGE : BLUE,
+            (0.8 + energy) * fade + 0.2,
+          );
+        }
+        // A traveling nib of white ink is followed by curved pressure streaks.
+        ctx.save();
+        ctx.globalAlpha = (1 - t) * 0.9;
+        const tip = add(front, mul(axis, span * 0.035)),
+          tail = minus(front, mul(axis, Math.min(265, span * 0.3)));
+        polygon(ctx, [
+          tip,
+          add(mix(tail, tip, 0.74), mul(n, energy * 7 * fade)),
+          tail,
+          minus(mix(tail, tip, 0.62), mul(n, energy * 2.6 * fade)),
+        ]);
+        ctx.fillStyle = PAPER;
+        ctx.fill();
+        for (let i = 0; i < 7; i++) {
+          const k = (0.13 + i * 0.143 + f.seed * 0.35) % 1,
+            side = i % 2 ? -1 : 1;
+          const pos = add(mix(f.a, f.b, k), mul(axis, t * (30 + i * 7)));
+          const spread = side * (3 + (i % 3) * 2 + t * (8 + energy * 14));
+          const start = add(pos, mul(n, spread)),
+            end = add(start, mul(axis, 36 + i * 6 + energy * 30));
+          ctx.beginPath();
+          ctx.moveTo(start.x, start.y);
+          const bow = add(mix(start, end, 0.5), mul(n, side * (1 + t) * energy * 4));
+          ctx.quadraticCurveTo(bow.x, bow.y, end.x, end.y);
+          ctx.strokeStyle = i % 3 === 0 ? ORANGE : light ? PAPER : INK;
+          ctx.lineWidth = (1.35 - i * 0.09) * fade + 0.2;
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+      function drawFX(dt) {
+        for (const p of particles) {
+          p.life -= dt;
+          p.p = add(p.p, mul(p.v, dt));
+          p.v.y += dt * (p.dust ? 160 : 480);
+          p.v.x *= Math.exp(-dt * 2);
+          p.a += dt * 4;
+          ctx.save();
+          ctx.translate(p.p.x, p.p.y);
+          ctx.rotate(p.a);
+          ctx.globalAlpha = clamp((p.life / p.max) * 1.6, 0, 1);
+          ctx.fillStyle = p.c;
+          if (p.dust) {
+            ctx.beginPath();
+            ctx.arc(0, 0, p.r * (1.4 - (p.life / p.max) * 0.5), 0, TAU);
+            ctx.fill();
+          } else {
+            polygon(ctx, [pt(-p.r * 2, 0), pt(p.r, -p.r * 0.55), pt(p.r * 0.6, p.r * 0.5)]);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+        particles = particles.filter((p) => p.life > 0);
+        for (let f of effects) {
+          let t = clamp((now - f.born) / f.dur, 0, 1);
+          ctx.save();
+          ctx.globalAlpha = 1 - t;
+          if (f.type === "blast") {
+            ctx.strokeStyle = INK;
+            ctx.lineWidth = (1 - t) * 2.7;
+            ctx.beginPath();
+            ctx.arc(f.p.x, f.p.y, 3 + f.r * (1 - (1 - t) ** 3), 0, TAU);
+            ctx.stroke();
+            if (t < 0.16) {
+              ctx.fillStyle = "rgba(250,249,240,.65)";
+              ctx.fill();
+            }
+          } else if (f.type === "pressure") {
+            ctx.strokeStyle = INK;
+            ctx.lineWidth = 2.4 * (1 - t) + 0.4;
+            ctx.beginPath();
+            const r = 4 + f.r * (1 - (1 - t) ** 3);
+            ctx.arc(f.p.x, f.p.y, r, 0, TAU);
+            ctx.stroke();
+            for (let k = 0; k < 8; k++) {
+              const d = rot(pt(1, 0), (k * TAU) / 8 + 0.2);
+              bladeTrail(
+                add(f.p, mul(d, r * 0.78)),
+                add(f.p, mul(d, r * (1.08 + (k % 3) * 0.16))),
+                2.5 * (1 - t),
+                INK,
+              );
+            }
+          } else if (["world", "crosscut", "flurry"].includes(f.type)) {
+            drawSwordWake(f, t);
+          } else bladeTrail(f.a, f.b, f.width * (1 - t), INK);
+          ctx.restore();
+        }
+        effects = effects.filter((f) => now - f.born < f.dur);
+      }
+      let previous = performance.now(),
+        accum = 0;
+      function frame(timestamp) {
+        now = timestamp;
+        let dt = Math.min(0.04, Math.max(0, (now - previous) / 1000));
+        previous = now;
+        updateNuke();
+        const due = queuedCuts.findIndex((strike) => strike.at <= now);
+        if (due >= 0) landCut(queuedCuts.splice(due, 1)[0]);
+        if (live && !clearing && now >= freeze) {
+          accum += dt;
+          while (accum >= 1 / 100) {
+            step(0.01);
+            accum -= 0.01;
+            if (now < freeze) {
+              accum = 0;
+              break;
+            }
+          }
+        } else accum = 0;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.drawImage(background, 0, 0, W, H);
+        ctx.save();
+        let age = (now - shakeTime) / 1000,
+          motion = Math.exp(-age * 15) * Math.cos(age * 90);
+        ctx.translate(tremor.x * motion, tremor.y * motion);
+        if (age > 0.8) tremor = pt(0, 0);
+        if (clearing) {
+          let t = clamp((now - clearing.start) / 490, 0, 1);
+          ctx.save();
+          ctx.translate(0, t * t * (H + 250));
+          for (let b of bodies) drawBody(b);
+          ctx.restore();
+          let y = t * t * H;
+          line(ctx, pt(0, y), pt(W, y), "rgba(17,17,17," + Math.sin(t * Math.PI) * 0.5 + ")");
+          if (t >= 1) finishClear();
+        } else for (let b of bodies) drawBody(b);
+        drawFX(dt);
+        drawNuke();
+        drawGesture();
+        ctx.restore();
+        if (dragHover) {
+          ctx.setLineDash([9, 7]);
+          ctx.strokeStyle = INK;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(12, 12, W - 24, H - 24);
+          ctx.setLineDash([]);
+        }
+        requestAnimationFrame(frame);
+      }
+      resize();
+      window.addEventListener("resize", resize);
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>
